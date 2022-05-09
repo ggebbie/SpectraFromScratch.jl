@@ -24,7 +24,6 @@ PkgTemplates.tl was used for the original template. See `scripts/start_package.j
 # How to get automatic deployment of documentation
 
 - make a gh-pages branch following [[https://coderwall.com/p/0n3soa/create-a-disconnected-git-branch][instructions for creating a disconnected git branch]]
-
 - Follow notes to make documenter_key and deploy key
 https://m3g.github.io/JuliaNotes.jl/stable/publish_docs/
 import DocumenterTools
