@@ -9,6 +9,8 @@ Spectral analysis can get complicated, but the basic concepts are simple. Here I
 
 This package originated as a Julia Colab notebook in ipynb format. The goal is to transform it to the standard Julia package format. 
 
+For examples on how to use this toolbox, see `test/runtests.jl`. 
+
 # How this Julia package was started
 
 PkgTemplates.tl was used for the original template. See `scripts/start_package.jl` for the details. Julia 1.0 is not supported. For integration with GitHub, I used the following steps:
