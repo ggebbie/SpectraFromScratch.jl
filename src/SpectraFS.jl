@@ -1,5 +1,122 @@
 module SpectraFS
 
-# Write your package code here.
+using Statistics, Plots, Distributions, FFTW
+
+export centeredFFT, band_avg, confid
+
+"""
+ function centeredFFT(x,dt)
+
+ Computes FFT, with zero frequency in the center, and returns 
+  dimensional frequency vector.
+
+ Inputs:
+    x, vector to be transformed
+    dt, time increment
+
+ Adapted from a function written by Quan Quach of blinkdagger.com 
+     Tom Farrar, 2016, jfarrar@whoi.edu
+     For Julia, Jake Gebbie, 2021, jgebbie@whoi.edu
+"""
+function centeredFFT(x,dt)
+    
+    n=length(x)
+
+    #Generate frequency index
+    if n%2 == 0
+        m=-n/2:n/2-1 # N even
+    else
+        m=-(n-1)/2:(n-1)/2 # N odd
+    end
+    freq=m/(n*dt)  #the dimensional frequency scale, this is an "iterator", not a vector, in julia
+    
+    xhat = fft(x)
+    
+    xhat = fftshift(xhat) #=swaps the halves of the FFT vector so that 
+    the zero frequency is in the center.
+    If you are going to compute an IFFT, 
+    first use X=ifftshift(X) to undo the shift =#
+    return xhat,freq
+end
+
+"""
+ function band_avg.jl   Block averages for band averaging
+ [yy_avg]=band_avg(yy,num,dimension)
+
+ Inputs:
+	yy, quantity to be averaged (must be vector or matrix)
+
+	num, number of bands to average
+	dimension (optional), dimension to average along; if specified, must be 1 or 2
+
+ Tom Farrar, 2016, jfarrar@whoi.edu
+ Ported to Julia, Jake Gebbie, 2021, jgebbie@whoi.edu =#
+"""
+function band_avg(yy,num,dim=missing)
+    numdims = ndims(yy)
+    nyy = size(yy)
+
+    if (numdims > 2) error("Dimension must be equal to 1 or 2 for band_avg") end
+
+    # shortcut execution
+    if numdims == 1
+        # initialize yy_avg
+        yy_avg = fill(0,floor(Integer,nyy[1]/num))
+        for n = 1:num
+            yy_avg += yy[n:num:end-(num-n)]
+        end
+        
+    elseif numdims == 2
+        if ismissing(dim) 
+            greaterthanone = x -> x>1
+            if count(greaterthanone,yy) > 1
+                error("Dimension must be specified for 2D input to band_avg")
+            else
+                dim = findfirst(greaterthanone,yy) 
+            end
+        end
+        if dim==1
+            # initialize yy_avg
+            nyy_avg = (floor(Integer,nyy[1]/num),nyy[2])
+            yy_avg = fill(0,nyy_avg)
+            for n=1:num
+                yy_avg += yy[n:num:end-(num-n),:]
+            end
+        elseif dim==2
+            #initialize yy_avg
+            nyy_avg = (nyy[1],floor(Integer,nyy[2]/num))
+            yy_avg = fill(0,nyy)
+            for n=1:num
+                yy_avg += yy[:,n:num:end-(num-n)]
+            end
+        end
+    end
+
+    # take the average
+    yy_avg=yy_avg./num
+    
+    return yy_avg
+end
+
+"""
+    function confid(α,ν)
+
+    Help with computing confidence intervals
+
+    should be sigma^2/S^2 confidence bounds where sigma^2 is true variance
+    check value (J&W) is alpha =.05, nu=19, lower bound is .58
+    upper bound is 2.11
+
+"""
+function confid(α,ν)
+
+    upperv = quantile(Chisq(ν),1-α)
+    lowerv = quantile(Chisq(ν),α)
+    lower=ν/upperv;
+    upper=ν/lowerv;
+
+    return lower, upper
+
+end
 
 end
