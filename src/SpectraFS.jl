@@ -152,10 +152,10 @@ function spectralpowerlaw(f,βlo,e=1.0,βhi=0.0)
     if !iszero(βhi)
         scale = 0.01^(βlo - βhi)
         println("scale ",scale)
-        \Psi .+= (1/scale)*f.^βhi
+        Ψ .+= (1/scale)*f.^βhi
     end
 
-    e₀ = 2sum(\Psi)/nf^2
+    e₀ = 2sum(Ψ)/nf^2
     Ψ .*= e/e₀
 
     return Ψ
@@ -170,13 +170,14 @@ end
 # Arguments
 - `t`: times of interest
 - `f`: Fourier frequencies
+- `includemean=false::Bool`: include the mean value in the basis set?, 
 # Output
 - `A::Matrix`: each column is an independent basis function,
                first (nt-1)/2 columns are sine coefficients
                second (nt-1)/2 columns are cosine coefficients
                last column represents the mean value
 """
-function spectralbasis(t,f)
+function spectralbasis(t,f,includemean=false)
     
     Acos = Matrix{Float64}(undef,length(t),length(f))
     Asin = Matrix{Float64}(undef,length(t),length(f))
@@ -185,8 +186,13 @@ function spectralbasis(t,f)
         Asin[:,ii] = sin.(2π*ff.*t)
     end
 
-    # add a column for the mean.
-    return A = hcat(Acos,Asin,ones(length(t)))
+    if includemean
+        # add a column for the mean.
+        return hcat(Acos,Asin,ones(length(t)))
+    else
+        return hcat(Acos,Asin)
+    end
+    
 end
 
 end
