@@ -2,7 +2,8 @@ module SpectraFS
 
 using Statistics, Plots, Distributions, FFTW
 
-export centeredFFT, band_avg, confid
+export centeredFFT, band_avg, confid, totalspectralenergy,
+    spectralpowerlaw, spectralbasis, observationalmatrix
 
 """
  function centeredFFT(x,dt)
@@ -117,6 +118,75 @@ function confid(α,ν)
 
     return lower, upper
 
+end
+
+"""
+    function totalspectralenergy(Φ,f)
+
+# Arguments
+- `Φ`: power spectral density
+- `f`: Fourier frequencies
+# Output
+- `e`: total energy
+"""
+function totalspectralenergy(Φ,f)
+    nf = length(f)
+    return e = 2sum(Φ)/nf^2
+end
+
+"""
+    spectralpowerlaw(β,f) = f.^-β  
+
+# Arguments
+- `f`: frequencies
+- `β`: power law coefficient, low frequencies
+- `e`: total energy
+- `βhi`: power law coefficient, high frequencies
+# Output
+- `Φ`: spectral energy density
+"""
+function spectralpowerlaw(f,βlo,e=1.0,βhi=0.0)
+    nf = length(f)
+    Φ = f.^-βlo  
+
+    if !iszero(βhi)
+        scale = 0.01^(βlo - βhi)
+        println("scale ",scale)
+        Φ .+= (1/scale)*f.^βhi
+    end
+
+    e₀ = 2sum(Φ)/nf^2
+    Φ .*= e/e₀
+
+    return Φ
+end
+
+"""
+    function spectralbasis(t,f)
+
+    basis function to reconstruct mean ocean temperature (Θ̄)
+    on the t temporal grid
+
+# Arguments
+- `t`: times of interest
+- `f`: Fourier frequencies
+# Output
+- `A::Matrix`: each column is an independent basis function,
+               first (nt-1)/2 columns are sine coefficients
+               second (nt-1)/2 columns are cosine coefficients
+               last column represents the mean value
+"""
+function spectralbasis(t,f)
+    
+    Asin = Matrix{Float64}(undef,length(t),length(f))
+    Acos = Matrix{Float64}(undef,length(t),length(f))
+    for (ii,ff) in enumerate(f)
+        Asin[:,ii] = sin.(2π*ff.*t)
+        Acos[:,ii] = cos.(2π*ff.*t)
+    end
+
+    # add a column for the mean.
+    return A = hcat(Acos,Asin,ones(length(t)))
 end
 
 end
