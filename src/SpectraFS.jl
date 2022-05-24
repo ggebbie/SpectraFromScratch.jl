@@ -147,18 +147,18 @@ end
 """
 function spectralpowerlaw(f,βlo,e=1.0,βhi=0.0)
     nf = length(f)
-    Φ = f.^-βlo  
+    Ψ = f.^-βlo  
 
     if !iszero(βhi)
         scale = 0.01^(βlo - βhi)
         println("scale ",scale)
-        Φ .+= (1/scale)*f.^βhi
+        \Psi .+= (1/scale)*f.^βhi
     end
 
-    e₀ = 2sum(Φ)/nf^2
-    Φ .*= e/e₀
+    e₀ = 2sum(\Psi)/nf^2
+    Ψ .*= e/e₀
 
-    return Φ
+    return Ψ
 end
 
 """
@@ -178,11 +178,11 @@ end
 """
 function spectralbasis(t,f)
     
-    Asin = Matrix{Float64}(undef,length(t),length(f))
     Acos = Matrix{Float64}(undef,length(t),length(f))
+    Asin = Matrix{Float64}(undef,length(t),length(f))
     for (ii,ff) in enumerate(f)
-        Asin[:,ii] = sin.(2π*ff.*t)
         Acos[:,ii] = cos.(2π*ff.*t)
+        Asin[:,ii] = sin.(2π*ff.*t)
     end
 
     # add a column for the mean.
