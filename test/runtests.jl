@@ -1,7 +1,7 @@
 using SpectraFromScratch, Distributions
 using Test
 
-@testset "SpectraFS.jl" begin
+@testset "SpectraFromScratch.jl" begin
     N  = 20_000 # underscore just for visual appearance
     Δt = 1      # could make \Delta in Julia REPL but not in notebook
     t  = Δt:Δt:N*Δt

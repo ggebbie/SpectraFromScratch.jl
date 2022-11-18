@@ -1,9 +1,9 @@
-# SpectraFS
+# SpectraFromScratch
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://ggebbie.github.io/SpectraFS.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://ggebbie.github.io/SpectraFS.jl/dev)
-[![Build Status](https://github.com/ggebbie/SpectraFS.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/ggebbie/SpectraFS.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/ggebbie/SpectraFS.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/ggebbie/SpectraFS.jl)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://ggebbie.github.io/SpectraFromScratch.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://ggebbie.github.io/SpectraFromScratch.jl/dev)
+[![Build Status](https://github.com/ggebbie/SpectraFromScratch.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/ggebbie/SpectraFromScratch.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/ggebbie/SpectraFromScratch.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/ggebbie/SpectraFromScratch.jl)
 
 Spectral analysis can get complicated, but the basic concepts are simple. Here I follow Tom Farrar's approach of building up a spectral analysis toolbox from scratch. It's not really from scratch as I rely on Steven Johnson's Fastest Fourier Transform of the West (FFTW.jl). The goal here is not to make the best operational spectral analysis, but instead to facilitate my learning and to make useful tools at the same time.
 
