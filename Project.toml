@@ -1,7 +1,7 @@
-name = "SpectraFS"
+name = "SpectraFromScratch"
 uuid = "d75dfb16-ab8e-4c05-ba24-63f12bc833ed"
-authors = ["G Jake Gebbie"]
-version = "0.1.0"
+authors = ["G Jake Gebbie <ggebbie@whoi.edu>"]
+version = "0.1.1"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"

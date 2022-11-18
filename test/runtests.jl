@@ -1,4 +1,4 @@
-using SpectraFS, Distributions, Plots
+using SpectraFromScratch, Distributions, Plots
 using Test
 
 @testset "SpectraFS.jl" begin
