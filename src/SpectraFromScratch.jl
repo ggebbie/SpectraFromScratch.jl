@@ -1,6 +1,6 @@
 module SpectraFromScratch
 
-using Statistics, Plots, Distributions, FFTW
+using Statistics, Distributions, FFTW
 
 export centeredFFT, band_avg, confid, totalspectralenergy,
     spectralpowerlaw, spectralbasis, observationalmatrix

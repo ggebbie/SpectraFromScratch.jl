@@ -9,9 +9,9 @@ using Test
     noise_val = 0.2 # desired noise std deviation
     yb = 1 .+ noise_val.*randn(N) .+ 0.75 .* sin.(2π*f*t)
 
-    plot(t,yb, leg=false)
-    title!("A sinusoid plus noise")
-    xlabel!("Time")
+    #plot(t,yb, leg=false)
+    #title!("A sinusoid plus noise")
+    #xlabel!("Time")
 
     @testset "bin averaging" begin
         navg = 20
