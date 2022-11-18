@@ -1,25 +1,29 @@
-module SpectraFS
+module SpectraFromScratch
 
-using Statistics, Plots, Distributions, FFTW
+using Statistics, Distributions, FFTW
 
 export centeredFFT, band_avg, confid, totalspectralenergy,
     spectralpowerlaw, spectralbasis, observationalmatrix
 
 """
- function centeredFFT(x,dt)
+ function centeredFFT(x,Δt)
 
  Computes FFT, with zero frequency in the center, and returns 
   dimensional frequency vector.
 
- Inputs:
-    x, vector to be transformed
-    dt, time increment
+- Adapted from a function written by Quan Quach of blinkdagger.com 
+- Tom Farrar, 2016, jfarrar@whoi.edu
+- Julia version, G Jake Gebbie, 2021, ggebbie@whoi.edu
 
- Adapted from a function written by Quan Quach of blinkdagger.com 
-     Tom Farrar, 2016, jfarrar@whoi.edu
-     For Julia, Jake Gebbie, 2021, jgebbie@whoi.edu
+# Arguments
+- `x`: vector to be transformed
+- `Δt`: time increment
+
+# Output
+- `x̂`: centered discrete Fourier transform
+- `f`: dimensional frequency scale
 """
-function centeredFFT(x,dt)
+function centeredFFT(x,Δt)
     
     n=length(x)
 
@@ -29,15 +33,17 @@ function centeredFFT(x,dt)
     else
         m=-(n-1)/2:(n-1)/2 # N odd
     end
-    freq=m/(n*dt)  #the dimensional frequency scale, this is an "iterator", not a vector, in julia
+
+    #the dimensional frequency scale, this is an "iterator", not a vector, in julia
+    f = m/(n*Δt)  
+    x̂ = fft(x)
     
-    xhat = fft(x)
-    
-    xhat = fftshift(xhat) #=swaps the halves of the FFT vector so that 
+    #=swaps the halves of the FFT vector so that 
     the zero frequency is in the center.
     If you are going to compute an IFFT, 
     first use X=ifftshift(X) to undo the shift =#
-    return xhat,freq
+    x̂ = fftshift(x̂)
+    return x̂,f
 end
 
 """

@@ -1,4 +1,4 @@
-using SpectraFS, Distributions, Plots
+using SpectraFromScratch, Distributions
 using Test
 
 @testset "SpectraFS.jl" begin
@@ -9,9 +9,9 @@ using Test
     noise_val = 0.2 # desired noise std deviation
     yb = 1 .+ noise_val.*randn(N) .+ 0.75 .* sin.(2π*f*t)
 
-    plot(t,yb, leg=false)
-    title!("A sinusoid plus noise")
-    xlabel!("Time")
+    #plot(t,yb, leg=false)
+    #title!("A sinusoid plus noise")
+    #xlabel!("Time")
 
     @testset "bin averaging" begin
         navg = 20
@@ -20,9 +20,9 @@ using Test
 
         @test isequal(length(y_avg),1000)
 
-        plot(t_avg,y_avg,leg = false)
-        title!("Bin averaged version of the timeseries above")
-        xlabel!("Time")
+        #plot(t_avg,y_avg,leg = false)
+        #title!("Bin averaged version of the timeseries above")
+        #xlabel!("Time")
 
     end
 
@@ -50,18 +50,18 @@ using Test
         freq =band_avg(freq_i,M)
 
         
-        plot(freq,real(Ψavg),leg=false)
-        plot!(freq,imag(Ψavg),leg=false)
-        title!("Band-averaged spectral estimate")
+        #plot(freq,real(Ψavg),leg=false)
+        #plot!(freq,imag(Ψavg),leg=false)
+        #title!("Band-averaged spectral estimate")
 
         # We were expecting the imaginary part to be zero. It appears to be nonzero. This may be a numerical artifact, but let's check this out.
-        plot(freq,imag(Ψavg),leg=false)
-        title!("Imaginary part of spectral estimate")
+        #plot(freq,imag(Ψavg),leg=false)
+        #title!("Imaginary part of spectral estimate")
 
         #         OK, just as I suspected, the imaginary part is a numerical artifact, close to floating point precision. The best way to handle this in the function we will build would probably be to check if the inputs are real, and, if they are, then just throw away the imaginary part of our spectral estimate. (If the input time series is complex, we should expect some imaginary part in the spectrum.)
 
-        plot(freq,real(Ψavg), xaxis=:log, yaxis=:log)
-        title!("Band-averaged spectral estimate")
+        #plot(freq,real(Ψavg), xaxis=:log, yaxis=:log)
+        #title!("Band-averaged spectral estimate")
 
         @testset "confidence intervals" begin
 
