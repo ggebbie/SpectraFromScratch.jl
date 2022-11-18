@@ -1,16 +1,16 @@
 using SpectraFromScratch
 using Documenter
 
-DocMeta.setdocmeta!(SpectraFromScratch, :DocTestSetup, :(using SpectraFS); recursive=true)
+DocMeta.setdocmeta!(SpectraFromScratch, :DocTestSetup, :(using SpectraFromScratch); recursive=true)
 
 makedocs(;
     modules=[SpectraFromScratch],
     authors="G Jake Gebbie",
-    repo="https://github.com/ggebbie/SpectraFS.jl/blob/{commit}{path}#{line}",
+    repo="https://github.com/ggebbie/SpectraFromScratch.jl/blob/{commit}{path}#{line}",
     sitename="SpectraFromScratch.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://ggebbie.github.io/SpectraFS.jl",
+        canonical="https://ggebbie.github.io/SpectraFromScratch.jl",
         assets=String[],
     ),
     pages=[

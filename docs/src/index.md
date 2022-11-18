@@ -1,14 +1,14 @@
 ```@meta
-CurrentModule = SpectraFS
+CurrentModule = SpectraFromScratch
 ```
 
-# SpectraFS
+# SpectraFromScratch
 
-Documentation for [SpectraFS](https://github.com/ggebbie/SpectraFS.jl).
+Documentation for [SpectraFromScratch](https://github.com/ggebbie/SpectraFromScratch.jl).
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [SpectraFS]
+Modules = [SpectraFromScratch]
 ```
