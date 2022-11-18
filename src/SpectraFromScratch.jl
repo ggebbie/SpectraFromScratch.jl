@@ -1,4 +1,4 @@
-module SpectraFS
+module SpectraFromScratch
 
 using Statistics, Plots, Distributions, FFTW
 
