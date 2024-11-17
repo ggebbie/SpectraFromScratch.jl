@@ -140,32 +140,51 @@ function totalspectralenergy(Φ,f)
     return e = 2sum(Φ)/nf^2
 end
 
-"""
-    spectralpowerlaw(β,f) = f.^-β  
+# """
+#     spectralpowerlaw(β,f) = f.^-β  
 
-# Arguments
-- `f`: frequencies
-- `β`: power law coefficient, low frequencies
-- `e`: total energy
-- `βhi`: power law coefficient, high frequencies
-# Output
-- `Φ`: spectral energy density
-"""
-function spectralpowerlaw(f,βlo,e=1.0,βhi=0.0)
+# # Arguments
+# - `f`: frequencies
+# - `β`: power law coefficient, low frequencies
+# - `e`: total energy
+# - `βhi`: power law coefficient, high frequencies
+# # Output
+# - `Φ`: spectral energy density
+# """
+# function spectralpowerlaw(f,βlo,e=1.0,βhi=0.0)
+#     nf = length(f)
+#     Ψ = f.^-βlo  
+
+#     if !iszero(βhi)
+#         scale = 0.01^(βlo - βhi)
+#         println("scale ",scale)
+#         Ψ .+= (1/scale)*f.^βhi
+#     end
+
+#     e₀ = 2sum(Ψ)/nf^2
+#     Ψ .*= e/e₀
+
+#     return Ψ
+# end
+
+# for units
+# type of `f` requires uniform vector
+#function spectralpowerlaw(f::StepRangeLen{<:Quantity{<:Number}},βlo,σ2=1.0,βhi=0.0)
+function spectralpowerlaw(f,βlo,σ2=1.0,βhi=0.0)
     nf = length(f)
-    Ψ = f.^-βlo  
+    fnondim = f ./ first(f)
+    Ψnondim = fnondim.^-βlo 
 
-    if !iszero(βhi)
-        scale = 0.01^(βlo - βhi)
-        println("scale ",scale)
-        Ψ .+= (1/scale)*f.^βhi
-    end
+    # if !iszero(βhi)
+    #     scale = 0.01^(βlo - βhi)
+    #     println("scale ",scale)
+    #     Ψ .+= (1/scale)*f.^βhi
+    # end
 
-    e₀ = 2sum(Ψ)/nf^2
-    Ψ .*= e/e₀
-
-    return Ψ
+    σ2nondim = 2sum(Ψnondim)/nf^2
+    return (σ2/σ2nondim) .* Ψnondim
 end
+
 
 """
     function spectralbasis(t,f)
