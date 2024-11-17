@@ -170,16 +170,18 @@ end
 # for units
 # type of `f` requires uniform vector
 #function spectralpowerlaw(f::StepRangeLen{<:Quantity{<:Number}},βlo,σ2=1.0,βhi=0.0)
-function spectralpowerlaw(f,βlo,σ2=1.0,βhi=0.0)
+function spectralpowerlaw(f,βlo,σ2=1.0,βhi=0.0,fbreak = 0.0)
     nf = length(f)
     fnondim = f ./ first(f)
     Ψnondim = fnondim.^-βlo 
 
-    # if !iszero(βhi)
-    #     scale = 0.01^(βlo - βhi)
-    #     println("scale ",scale)
-    #     Ψ .+= (1/scale)*f.^βhi
-    # end
+    # high-low frequency break point, add to arguments
+    fbreak_nondim =  fbreak ./ first(f)
+    if !iszero(βhi)
+        scale = fbreak_nondim^(βlo - βhi)
+        println("scale ",scale)
+        Ψnondim .+= (1/scale)*fnondim.^-βhi
+    end
 
     σ2nondim = 2sum(Ψnondim)/nf^2
     return (σ2/σ2nondim) .* Ψnondim
