@@ -135,9 +135,11 @@ end
 # Output
 - `e`: total energy
 """
-function totalspectralenergy(Φ,f)
-    nf = length(f)
-    return e = 2sum(Φ)/nf^2
+function totalspectralenergy(Ψ,f)
+    #nf = length(f)
+    !iszero(first(f)) ? (Δf = first(f)) : (Δf = f[2])
+    return e = 2sum(Ψ)*Δf
+    #return e = 2sum(Ψ)/nf^2
 end
 
 # """
@@ -170,20 +172,20 @@ end
 # for units
 # type of `f` requires uniform vector
 #function spectralpowerlaw(f::StepRangeLen{<:Quantity{<:Number}},βlo,σ2=1.0,βhi=0.0)
-function spectralpowerlaw(f,βlo,σ2=1.0,βhi=0.0,fbreak = 0.0)
+function spectralpowerlaw(f, βlo, σ2=1.0; βhi=nothing, fbreak=nothing)
     nf = length(f)
     fnondim = f ./ first(f)
+    T = 1 / first(f)
     Ψnondim = fnondim.^-βlo 
-
-    # high-low frequency break point, add to arguments
-    fbreak_nondim =  fbreak ./ first(f)
-    if !iszero(βhi)
+    if !isnothing(βhi)
+        # high-low frequency break point, add to arguments
+        fbreak_nondim =  fbreak ./ first(f)
         scale = fbreak_nondim^(βlo - βhi)
-        println("scale ",scale)
+        #println("scale ",scale)
         Ψnondim .+= (1/scale)*fnondim.^-βhi
     end
 
-    σ2nondim = 2sum(Ψnondim)/nf^2
+    σ2nondim = 2sum(Ψnondim)/T # nf^2
     return (σ2/σ2nondim) .* Ψnondim
 end
 
