@@ -135,37 +135,60 @@ end
 # Output
 - `e`: total energy
 """
-function totalspectralenergy(Φ,f)
-    nf = length(f)
-    return e = 2sum(Φ)/nf^2
+function totalspectralenergy(Ψ,f)
+    #nf = length(f)
+    !iszero(first(f)) ? (Δf = first(f)) : (Δf = f[2])
+    return e = 2sum(Ψ)*Δf
+    #return e = 2sum(Ψ)/nf^2
 end
 
-"""
-    spectralpowerlaw(β,f) = f.^-β  
+# """
+#     spectralpowerlaw(β,f) = f.^-β  
 
-# Arguments
-- `f`: frequencies
-- `β`: power law coefficient, low frequencies
-- `e`: total energy
-- `βhi`: power law coefficient, high frequencies
-# Output
-- `Φ`: spectral energy density
-"""
-function spectralpowerlaw(f,βlo,e=1.0,βhi=0.0)
+# # Arguments
+# - `f`: frequencies
+# - `β`: power law coefficient, low frequencies
+# - `e`: total energy
+# - `βhi`: power law coefficient, high frequencies
+# # Output
+# - `Φ`: spectral energy density
+# """
+# function spectralpowerlaw(f,βlo,e=1.0,βhi=0.0)
+#     nf = length(f)
+#     Ψ = f.^-βlo  
+
+#     if !iszero(βhi)
+#         scale = 0.01^(βlo - βhi)
+#         println("scale ",scale)
+#         Ψ .+= (1/scale)*f.^βhi
+#     end
+
+#     e₀ = 2sum(Ψ)/nf^2
+#     Ψ .*= e/e₀
+
+#     return Ψ
+# end
+
+# for units
+# type of `f` requires uniform vector
+#function spectralpowerlaw(f::StepRangeLen{<:Quantity{<:Number}},βlo,σ2=1.0,βhi=0.0)
+function spectralpowerlaw(f, βlo, σ2=1.0; βhi=nothing, fbreak=nothing)
     nf = length(f)
-    Ψ = f.^-βlo  
-
-    if !iszero(βhi)
-        scale = 0.01^(βlo - βhi)
-        println("scale ",scale)
-        Ψ .+= (1/scale)*f.^βhi
+    fnondim = f ./ first(f)
+    T = 1 / first(f)
+    Ψnondim = fnondim.^-βlo 
+    if !isnothing(βhi)
+        # high-low frequency break point, add to arguments
+        fbreak_nondim =  fbreak ./ first(f)
+        scale = fbreak_nondim^(βlo - βhi)
+        #println("scale ",scale)
+        Ψnondim .+= (1/scale)*fnondim.^-βhi
     end
 
-    e₀ = 2sum(Ψ)/nf^2
-    Ψ .*= e/e₀
-
-    return Ψ
+    σ2nondim = 2sum(Ψnondim)/T # nf^2
+    return (σ2/σ2nondim) .* Ψnondim
 end
+
 
 """
     function spectralbasis(t,f)
