@@ -1,12 +1,55 @@
 module SpectraFromScratch
 
-using Statistics, Distributions, FFTW
+using Statistics
+using Distributions
+using FFTW
+using OffsetArrays
 
-export centeredFFT, band_avg, confid, totalspectralenergy,
-    spectralpowerlaw, spectralbasis, observationalmatrix
+export FourierTransform
+export EvenlySpacedTimeseries
+export centered_fft, band_avg, confid, totalspectralenergy
+export spectralpowerlaw, spectralbasis, observationalmatrix
+
+struct FourierTransform{T<:Number,C<:Complex}
+    xhat::AbstractVector{C}
+    f::AbstractVector{T}
+end
+
+struct EvenlySpacedTimeseries
+    x::AbstractVector
+    dt::Number
+end
+function EvenlySpacedTimeseries(x::AbstractVector, t::AbstractVector)
+    length(x) != length(t) && error("lengths do not match")
+    if all(iszero(diff(diff(t))))
+        return EvenlySpacedTimeseries(x, first(diff(t)))
+    else
+        error("not evenly spaced")
+    end
+end
+Base.length(y::EvenlySpacedTimeseries) = length(y.x)
+
+fourier_modes(N::Number) = iseven(N) ?
+	                       (m = (-convert(Int,N/2):convert(Int,(N/2)-1))) :
+	                       (m = (-convert(Int,(N-1)/2):convert(Int,((N-1)/2))))
+fourier_modes(y::EvenlySpacedTimeseries) = fourier_modes(length(y))
+
+fourier_frequencies(m, T) = OffsetArray(m/T, m)
+
+record_length(y::EvenlySpacedTimeseries) = length(y) * y.dt
+
+function fourier_basis(y::EvenlySpacedTimeseries{T, C})
+    m = fourier_modes(y)
+    T = record_length(y)
+    f = fourier_frequencies(m, T)
+    U = Vector{Vector{C}}(undef, length(y))
+    for i in eachindex(f)
+        U[i] = exp.(2π*im*f[i].*y.dt)
+    end
+end
 
 """
- function centeredFFT(x,Δt)
+ function centered_fft(x,Δt)
 
  Computes FFT, with zero frequency in the center, and returns 
   dimensional frequency vector.
@@ -23,27 +66,30 @@ export centeredFFT, band_avg, confid, totalspectralenergy,
 - `x̂`: centered discrete Fourier transform
 - `f`: dimensional frequency scale
 """
-function centeredFFT(x,Δt)
+function centered_fft(y::EvenlySpacedTimeseries)
+    # n=length(x)
+    m = fourier_modes(y)
     
-    n=length(x)
-
     #Generate frequency index
-    if n%2 == 0
-        m=-n/2:n/2-1 # N even
-    else
-        m=-(n-1)/2:(n-1)/2 # N odd
-    end
+    # if n%2 == 0
+    #     m=-n/2:n/2-1 # N even
+    # else
+    #     m=-(n-1)/2:(n-1)/2 # N odd
+    # end
+
+    T = record_length(y)
 
     #the dimensional frequency scale, this is an "iterator", not a vector, in julia
-    f = m/(n*Δt)  
-    x̂ = fft(x)
+    # f = m/(n*Δt)  
+    f = fourier_frequencies(m, T)
     
     #=swaps the halves of the FFT vector so that 
     the zero frequency is in the center.
     If you are going to compute an IFFT, 
     first use X=ifftshift(X) to undo the shift =#
-    x̂ = fftshift(x̂)
-    return x̂,f
+    # x̂ = fftshift(x̂)
+    x̂ = fftshift(fft(y.x))
+    return FourierTransform(OffsetArray(x̂, m), f)
 end
 
 """

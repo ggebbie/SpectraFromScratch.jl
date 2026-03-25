@@ -1,5 +1,8 @@
-using SpectraFromScratch, Distributions
+using Revise
+using SpectraFromScratch
+using Distributions
 using Test
+using Statistics
 
 @testset "SpectraFromScratch.jl" begin
     N  = 20_000 # underscore just for visual appearance
@@ -12,6 +15,20 @@ using Test
     #plot(t,yb, leg=false)
     #title!("A sinusoid plus noise")
     #xlabel!("Time")
+
+    @testset "FourierTransform struct" begin
+        yy = yb # just renaming yb to mimic matlab code
+        N = length(yy)
+        T = N * Δt
+        yy .-= mean(yy) # remove the mean
+
+        # Compute the FFT of the entire tapered record.
+        Y,freq_i = centered_fft(yy,Δt)
+        ŷ_orig = FourierTransform(Y,freq_i)
+
+        y = EvenlySpacedTimeseries(yb, t)
+        ŷ = centered_fft(y)
+    end
 
     @testset "bin averaging" begin
         navg = 20
