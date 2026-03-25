@@ -76,21 +76,11 @@ record_length(y::EvenlySampledTimeseries) = length(y) * sampling_resolution(y)
 - `x̂`: centered discrete Fourier transform
 - `f`: dimensional frequency scale
 """
-function centered_fft(y::EvenlySpacedTimeseries)
-    # n=length(x)
+function centered_fft(y::EvenlySampledTimeseries)
     m = fourier_modes(y)
-    
-    #Generate frequency index
-    # if n%2 == 0
-    #     m=-n/2:n/2-1 # N even
-    # else
-    #     m=-(n-1)/2:(n-1)/2 # N odd
-    # end
-
-    T = record_length(y)
+    T = record_length(y) 
 
     #the dimensional frequency scale, this is an "iterator", not a vector, in julia
-    # f = m/(n*Δt)  
     f = fourier_frequencies(m, T)
     
     #=swaps the halves of the FFT vector so that 
@@ -98,9 +88,50 @@ function centered_fft(y::EvenlySpacedTimeseries)
     If you are going to compute an IFFT, 
     first use X=ifftshift(X) to undo the shift =#
     # x̂ = fftshift(x̂)
-    x̂ = fftshift(fft(y.x))
+    x̂ = fftshift(fft(OffsetArrays.no_offset_view(y.x)))
     return FourierTransform(OffsetArray(x̂, m), f)
 end
+
+function centered_ifft(beta::FourierTransform, t::AbstractVector)
+    # assume that time axis needs shifting for beta from the FFT.
+    tshift = t .- first(t)
+    y = ifft(ifftshift(OffsetArrays.no_offset_view(beta.xhat)))
+    println("largest complex component is ", maximum(real.(im.*y)))
+    return EvenlySampledTimeseries(real.(y), t)
+end
+
+
+function FourierTransform(y::EvenlySampledTimeseries)
+    #the dimensional frequency scale, this is an "iterator", not a vector, in julia
+    m = fourier_modes(y)
+    f = fourier_frequencies(y)
+
+    # make a β coefficient for every value of m
+    β = OffsetArray(zero(Vector{ComplexF64}(undef, length(y))), m)
+
+    for m in eachindex(f)
+        # println(m)
+        for n in eachindex(y.t)
+            # println(n)
+            # println(exp(-2π*im*f[m]*y.t[n]) * y.x[n])
+            # println(β[m])
+            β[m] += exp(-2π*im*f[m]*y.t[n]) * y.x[n]
+        end
+    end
+    return FourierTransform(β, f)
+end
+
+function EvenlySampledTimeseries(beta::FourierTransform, t::AbstractVector)
+    N = length(beta.f) # number of observations
+    y = zeros(Float64, N)
+    for  i in eachindex(t) 
+        for j in eachindex(beta.xhat)
+            y[i] += real.(beta.xhat[j] * exp(2π*im*beta.f[j]*t[i]))
+        end
+    end
+    return EvenlySampledTimeseries(y./N, t)
+end
+
 
 """
  function band_avg.jl   Block averages for band averaging

@@ -5,7 +5,7 @@ using Test
 using Statistics
 
 @testset "SpectraFromScratch.jl" begin
-    N  = 20_000 # underscore just for visual appearance
+    N  = 2000 # underscore just for visual appearance
     Δt = 1      # could make \Delta in Julia REPL but not in notebook
     t  = Δt:Δt:N*Δt
     f  = 20/((N-1)*Δt)
@@ -23,11 +23,26 @@ using Statistics
         yy .-= mean(yy) # remove the mean
 
         # Compute the FFT of the entire tapered record.
-        Y,freq_i = centered_fft(yy,Δt)
-        ŷ_orig = FourierTransform(Y,freq_i)
+        # Y,freq_i = centered_fft(yy,Δt)
+        # ŷ_orig = FourierTransform(Y,freq_i)
 
-        y = EvenlySpacedTimeseries(yb, t)
-        ŷ = centered_fft(y)
+        y = EvenlySampledTimeseries(yy, t)
+        @time ŷ_orig = centered_fft(y)
+        @time ŷ = FourierTransform(y)
+
+        # Inverse Fourier Transform
+        @time ỹ = EvenlySampledTimeseries(ŷ, y.t)
+        @test isapprox(y.x, ỹ.x)
+        @test isapprox(y.t, ỹ.t)
+
+        # needs time correction, fft assumes t=0 at first obs
+        @time ỹ_orig = EvenlySampledTimeseries(ŷ_orig, y.t.-first(y.t))
+        @test isapprox(y.x, ỹ_orig.x) # now passes
+        @test isapprox(y.t, ỹ_orig.t .+ first(y.t)) 
+
+        @time ỹ_orig2 = centered_ifft(ŷ_orig, y.t)
+        @test isapprox(y.x, ỹ_orig2.x) # now passes
+        @test isapprox(y.t, ỹ_orig2.t) 
     end
 
     @testset "bin averaging" begin
