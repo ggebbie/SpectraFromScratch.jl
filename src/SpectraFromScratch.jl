@@ -6,8 +6,10 @@ using FFTW
 using OffsetArrays
 
 export FourierTransform
-export EvenlySpacedTimeseries
-export centered_fft, band_avg, confid, totalspectralenergy
+export EvenlySampledTimeseries
+export centered_fft
+export centered_ifft
+export band_avg, confid, totalspectralenergy
 export spectralpowerlaw, spectralbasis, observationalmatrix
 
 struct FourierTransform{T<:Number,C<:Complex}
@@ -15,38 +17,46 @@ struct FourierTransform{T<:Number,C<:Complex}
     f::AbstractVector{T}
 end
 
-struct EvenlySpacedTimeseries
-    x::AbstractVector
-    dt::Number
-end
-function EvenlySpacedTimeseries(x::AbstractVector, t::AbstractVector)
-    length(x) != length(t) && error("lengths do not match")
-    if all(iszero(diff(diff(t))))
-        return EvenlySpacedTimeseries(x, first(diff(t)))
-    else
-        error("not evenly spaced")
+struct EvenlySampledTimeseries{T <: Number}
+    x::AbstractVector{T}
+    t::AbstractVector
+    function EvenlySampledTimeseries(x::AbstractVector, t::AbstractVector)
+        length(x) != length(t) && error("lengths do not match")
+        if all(iszero(diff(diff(t))))
+            return new{eltype(x)}(x, t)
+        else
+            error("not evenly spaced")
+        end
     end
 end
-Base.length(y::EvenlySpacedTimeseries) = length(y.x)
+Base.length(y::EvenlySampledTimeseries) = length(y.x)
 
 fourier_modes(N::Number) = iseven(N) ?
 	                       (m = (-convert(Int,N/2):convert(Int,(N/2)-1))) :
 	                       (m = (-convert(Int,(N-1)/2):convert(Int,((N-1)/2))))
-fourier_modes(y::EvenlySpacedTimeseries) = fourier_modes(length(y))
+fourier_modes(y::EvenlySampledTimeseries) = fourier_modes(length(y))
 
 fourier_frequencies(m, T) = OffsetArray(m/T, m)
-
-record_length(y::EvenlySpacedTimeseries) = length(y) * y.dt
-
-function fourier_basis(y::EvenlySpacedTimeseries{T, C})
+function fourier_frequencies(y::EvenlySampledTimeseries)
     m = fourier_modes(y)
     T = record_length(y)
-    f = fourier_frequencies(m, T)
-    U = Vector{Vector{C}}(undef, length(y))
-    for i in eachindex(f)
-        U[i] = exp.(2π*im*f[i].*y.dt)
-    end
+    #the dimensional frequency scale, this is an "iterator", not a vector, in julia
+    return fourier_frequencies(m, T)
 end
+
+sampling_resolution(y::EvenlySampledTimeseries) = first(diff(y.t))
+
+record_length(y::EvenlySampledTimeseries) = length(y) * sampling_resolution(y)
+
+# function fourier_basis(y::EvenlySampledTimeseries{Tin}) where Tin
+#     m = fourier_modes(y)
+#     T = record_length(y)
+#     f = fourier_frequencies(m, T)
+#     U = Vector{Vector{C}}(undef, length(y))
+#     for i in eachindex(f)
+#         U[i] = exp.(2π*im*f[i].*y.dt)
+#     end
+# end
 
 """
  function centered_fft(x,Δt)
