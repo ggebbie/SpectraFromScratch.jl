@@ -215,7 +215,7 @@ end
  Tom Farrar, 2016, jfarrar@whoi.edu
  Ported to Julia, Jake Gebbie, 2021, jgebbie@whoi.edu =#
 """
-function band_avg(yy,num,dim=missing)
+function band_average(yy, num; dim=missing)
     numdims = ndims(yy)
     nyy = size(yy)
 
@@ -256,9 +256,13 @@ function band_avg(yy,num,dim=missing)
     end
 
     # take the average
-    yy_avg=yy_avg./num
-    
-    return yy_avg
+    return yy_avg./num
+end
+
+function band_average(psi::FrequencySpectrum, num; dim=missing)
+    yy_avg = band_average(psi.psi, num, dim=dim)
+    f_avg = band_average(psi.f, num, dim=dim)
+    return FrequencySpectrum(yy_avg, f_avg)
 end
 
 """
