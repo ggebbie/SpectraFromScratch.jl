@@ -153,7 +153,7 @@ using Statistics
         @time ŵ  = centered_fft(w)
         
         ŵ_residual = ĥ / x̂
-       ŵ_residual = FourierTransform(ĥ.xhat ./ x̂.xhat, ĥ.f)
+       # ŵ_residual = FourierTransform(ĥ.xhat ./ x̂.xhat, ĥ.f)
 
         @test maximum(abs.(ŵ_residual.xhat)) < 1.1
         @test minimum(abs.(ŵ_residual.xhat)) > 0.9
