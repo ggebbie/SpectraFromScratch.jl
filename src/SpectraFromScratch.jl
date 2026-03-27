@@ -15,7 +15,7 @@ export spectralpowerlaw, spectralbasis, observationalmatrix
 export convolve
 export periodogram
 
-import Base: (/)
+import Base: /
 
 struct FourierTransform{T<:Number,C<:Complex}
     xhat::AbstractVector{C}
