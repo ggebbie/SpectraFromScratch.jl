@@ -9,12 +9,30 @@ export FourierTransform
 export EvenlySampledTimeseries
 export centered_fft
 export centered_ifft
-export band_avg, confid, totalspectralenergy
+export band_average
+export confid, totalspectralenergy
 export spectralpowerlaw, spectralbasis, observationalmatrix
+export convolve
+export periodogram
+
+import Base: (/)
 
 struct FourierTransform{T<:Number,C<:Complex}
     xhat::AbstractVector{C}
     f::AbstractVector{T}
+end
+
+struct FrequencySpectrum{T<:Real}
+    psi::AbstractVector
+    f::AbstractVector
+    function FrequencySpectrum(psi, f)
+        isnegative = (x -> x < zero(x))
+        if any(isnegative.(f))
+            error("one sided spectrum where frequency must be positive ")
+        else
+            new{eltype(real.(psi))}(real.(psi), f)
+        end
+    end
 end
 
 struct EvenlySampledTimeseries{T <: Number}
