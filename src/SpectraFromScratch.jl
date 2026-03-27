@@ -167,7 +167,7 @@ function convolve(w::EvenlySampledTimeseries,y::EvenlySampledTimeseries)
     nmin = minimum(eachindex(y.x))
     nmax = maximum(eachindex(y.x))
     for n in eachindex(y.x)
-        println(n)
+        # println(n)
 	for m in eachindex(w.x)
 	    if (nmin <= (n-m+i0) <= nmax) # check bounds
 		h[n] += w.x[m] * y.x[n-m+i0]
@@ -183,7 +183,7 @@ function convolve(w::EvenlySampledTimeseries,y::EvenlySampledTimeseries)
     return EvenlySampledTimeseries(h, y.t)
 end
 
-function Base.(/)(h::FourierTransform, x::FourierTransform)
+function Base.:(/)(h::FourierTransform, x::FourierTransform)
     (h.f != x.f) && error("frequencies do not match")
     return FourierTransform(h.xhat ./ x.xhat, h.f)
 end

@@ -1,4 +1,4 @@
-using Revise
+# using Revise
 using SpectraFromScratch
 using Distributions
 using Test
@@ -47,8 +47,8 @@ using Statistics
 
     @testset "bin averaging" begin
         navg = 20
-        y_avg = band_avg(yb,navg)
-        t_avg = band_avg(t,navg)
+        y_avg = band_average(yb,navg)
+        t_avg = band_average(t,navg)
 
         @test isapprox(length(y_avg),N/navg)
 
@@ -143,7 +143,7 @@ using Statistics
         N_convolve = 51
         t_convolve = 1:N_convolve
         x = EvenlySampledTimeseries( randn(N_convolve), t_convolve)
-        h = convolve(w,x)
+        h = SpectraFromScratch.convolve(w,x)
         @test h.x == x.x
         @test h.t == x.t
 
