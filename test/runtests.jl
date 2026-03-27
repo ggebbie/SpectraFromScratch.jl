@@ -50,7 +50,7 @@ using Statistics
         y_avg = band_avg(yb,navg)
         t_avg = band_avg(t,navg)
 
-        @test isequal(length(y_avg),1000)
+        @test isapprox(length(y_avg),N/navg)
 
         #plot(t_avg,y_avg,leg = false)
         #title!("Bin averaged version of the timeseries above")
@@ -67,20 +67,18 @@ using Statistics
         yy .-= mean(yy) # remove the mean
 
         # Compute the FFT of the entire tapered record.
-        Y,freq_i = centeredFFT(yy,Δt)
+        # Y,freq_i = centeredFFT(yy,Δt)
+        y = EvenlySampledTimeseries(yy, t)
+        ŷq = FourierTransform(y)
 
-        # compute spectrum
-        ispositive = x -> x > 0
-        ff = findall(ispositive,freq_i)
-        Y = Y[ff]
-        freq_i = freq_i[ff]
-        Ψraw = (2*T/N^2).*Y.*conj(Y)
+        Ψraw = SpectraFromScratch.periodogram(y)
+        @test all(Ψraw.psi .> zero(first(Ψraw.psi)))
 
         # Band average the raw spectrum over 𝑛𝑑 frequency bands-- this could be done by an algorithm like equation ??? or by computing a running average and subsampling. Generate the new frequency vector, either by subsampling the Fourier frequencies at the interval of 𝑛𝑑/𝑇 or by band averaging the frequency vector. --> We will use our band-averaging function on both the spectrum and the frequency vector
-        M = 11
-        Ψavg = band_avg(Ψraw,M)
-        freq =band_avg(freq_i,M)
+        nbands = 11
+        Ψavg = band_average(Ψraw, nbands)
 
+        @test length(Ψraw.psi) > length(Ψavg.psi)
         
         #plot(freq,real(Ψavg),leg=false)
         #plot!(freq,imag(Ψavg),leg=false)
@@ -133,34 +131,43 @@ using Statistics
 		end
 	    end
             w /= sum(w)
-            return OffsetArray(w, -Mmax:Mmax)
+            return EvenlySampledTimeseries(w, τ)
+            # return OffsetArray(w, -Mmax:Mmax)
         end
-
-        function convolve(w::OffsetArray,y::EvenlySampledTimeseries)
-            x = y.x
-	    h = 0.0*similar(x)
-	    tmin = minimum(eachindex(x))
-	    tmax = maximum(eachindex(x))
-	    for tt in eachindex(x)
-		for mm in eachindex(w)
-		    if (tmin <= (tt-mm) <= tmax) # check bounds
-			h[tt] += w[mm] * x[tt-mm]
-		    end
-		end
-	    end
-	    return EvenlySampledTimeseries(h, y.t)
-        end
+        
+        τ = range(-10,10,step=1)
+        Trectangle = 0
         M = length(rectangle(Trectangle,τ))
         Mmax = convert(Int,(M-1)/2) 
-        τ = range(-20,20,step=1)
-        Trectangle = 6
         w = rectangle(Trectangle,τ)
-        N_convolve = 50
-        t_convolve = 0:N_convolve-1
+        N_convolve = 51
+        t_convolve = 1:N_convolve
         x = EvenlySampledTimeseries( randn(N_convolve), t_convolve)
+        h = convolve(w,x)
+        @test h.x == x.x
+        @test h.t == x.t
 
-        convolve(w,x)
+        # test the convolution theorem
+        @time ĥ  = centered_fft(h)
+        @time x̂  = centered_fft(x)
+        @time ŵ  = centered_fft(w)
+        
+        ŵ_residual = ĥ / x̂
+       ŵ_residual = FourierTransform(ĥ.xhat ./ x̂.xhat, ĥ.f)
+
+        @test maximum(abs.(ŵ_residual.xhat)) < 1.1
+        @test minimum(abs.(ŵ_residual.xhat)) > 0.9
+
+        @test maximum(abs.(ŵ.xhat)) < 1.1
+        @test minimum(abs.(ŵ.xhat)) > 0.9
+
+        N_padded = convert(Int, floor(N_convolve/2))
+        τ_padded = range(-N_padded, N_padded, step=1)
+        w_padded = rectangle(Trectangle,τ_padded)
+        @time ŵ_padded  = centered_fft(w_padded)
+
+        @test maximum(abs.(ŵ_padded.xhat)) < 1.1
+        @test minimum(abs.(ŵ_padded.xhat)) > 0.9
 
     end    
-    
 end
