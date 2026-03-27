@@ -1,12 +1,83 @@
 module SpectraFromScratch
 
-using Statistics, Distributions, FFTW
+using Statistics
+using Distributions
+using FFTW
+using OffsetArrays
 
-export centeredFFT, band_avg, confid, totalspectralenergy,
-    spectralpowerlaw, spectralbasis, observationalmatrix
+export FourierTransform
+export EvenlySampledTimeseries
+export centered_fft
+export centered_ifft
+export band_average
+export confid, totalspectralenergy
+export spectralpowerlaw, spectralbasis, observationalmatrix
+export convolve
+export periodogram
+
+import Base: /
+
+struct FourierTransform{T<:Number,C<:Complex}
+    xhat::AbstractVector{C}
+    f::AbstractVector{T}
+end
+
+struct FrequencySpectrum{T<:Real}
+    psi::AbstractVector
+    f::AbstractVector
+    function FrequencySpectrum(psi, f)
+        isnegative = (x -> x < zero(x))
+        if any(isnegative.(f))
+            error("one sided spectrum where frequency must be positive ")
+        else
+            new{eltype(real.(psi))}(real.(psi), f)
+        end
+    end
+end
+
+struct EvenlySampledTimeseries{T <: Number}
+    x::AbstractVector{T}
+    t::AbstractVector
+    function EvenlySampledTimeseries(x::AbstractVector, t::AbstractVector)
+        length(x) != length(t) && error("lengths do not match")
+        if all(iszero(diff(diff(t))))
+            return new{eltype(x)}(x, t)
+        else
+            error("not evenly spaced")
+        end
+    end
+end
+Base.length(y::EvenlySampledTimeseries) = length(y.x)
+
+fourier_modes(N::Number) = iseven(N) ?
+	                       (m = (-convert(Int,N/2):convert(Int,(N/2)-1))) :
+	                       (m = (-convert(Int,(N-1)/2):convert(Int,((N-1)/2))))
+fourier_modes(y::EvenlySampledTimeseries) = fourier_modes(length(y))
+
+fourier_frequencies(m, T) = OffsetArray(m/T, m)
+function fourier_frequencies(y::EvenlySampledTimeseries)
+    m = fourier_modes(y)
+    T = record_length(y)
+    #the dimensional frequency scale, this is an "iterator", not a vector, in julia
+    return fourier_frequencies(m, T)
+end
+
+sampling_resolution(y::EvenlySampledTimeseries) = first(diff(y.t))
+
+record_length(y::EvenlySampledTimeseries) = length(y) * sampling_resolution(y)
+
+# function fourier_basis(y::EvenlySampledTimeseries{Tin}) where Tin
+#     m = fourier_modes(y)
+#     T = record_length(y)
+#     f = fourier_frequencies(m, T)
+#     U = Vector{Vector{C}}(undef, length(y))
+#     for i in eachindex(f)
+#         U[i] = exp.(2π*im*f[i].*y.dt)
+#     end
+# end
 
 """
- function centeredFFT(x,Δt)
+ function centered_fft(x,Δt)
 
  Computes FFT, with zero frequency in the center, and returns 
   dimensional frequency vector.
@@ -23,27 +94,112 @@ export centeredFFT, band_avg, confid, totalspectralenergy,
 - `x̂`: centered discrete Fourier transform
 - `f`: dimensional frequency scale
 """
-function centeredFFT(x,Δt)
-    
-    n=length(x)
-
-    #Generate frequency index
-    if n%2 == 0
-        m=-n/2:n/2-1 # N even
-    else
-        m=-(n-1)/2:(n-1)/2 # N odd
-    end
+function centered_fft(y::EvenlySampledTimeseries)
+    m = fourier_modes(y)
+    T = record_length(y) 
 
     #the dimensional frequency scale, this is an "iterator", not a vector, in julia
-    f = m/(n*Δt)  
-    x̂ = fft(x)
+    f = fourier_frequencies(m, T)
     
     #=swaps the halves of the FFT vector so that 
     the zero frequency is in the center.
     If you are going to compute an IFFT, 
     first use X=ifftshift(X) to undo the shift =#
-    x̂ = fftshift(x̂)
-    return x̂,f
+    # x̂ = fftshift(x̂)
+    x̂ = fftshift(fft(OffsetArrays.no_offset_view(y.x)))
+    return FourierTransform(OffsetArray(x̂, m), f)
+end
+
+function centered_ifft(beta::FourierTransform, t::AbstractVector)
+    # assume that time axis needs shifting for beta from the FFT.
+    tshift = t .- first(t)
+    y = ifft(ifftshift(OffsetArrays.no_offset_view(beta.xhat)))
+    println("largest complex component is ", maximum(abs.(real.(im.*y))))
+    return EvenlySampledTimeseries(real.(y), t)
+end
+
+
+function FourierTransform(y::EvenlySampledTimeseries)
+    #the dimensional frequency scale, this is an "iterator", not a vector, in julia
+    m = fourier_modes(y)
+    f = fourier_frequencies(y)
+
+    # make a β coefficient for every value of m
+    β = OffsetArray(zero(Vector{ComplexF64}(undef, length(y))), m)
+
+    for m in eachindex(f)
+        # println(m)
+        for n in eachindex(y.t)
+            # println(n)
+            # println(exp(-2π*im*f[m]*y.t[n]) * y.x[n])
+            # println(β[m])
+            β[m] += exp(-2π*im*f[m]*y.t[n]) * y.x[n]
+        end
+    end
+    return FourierTransform(β, f)
+end
+
+function EvenlySampledTimeseries(beta::FourierTransform, t::AbstractVector)
+    N = length(beta.f) # number of observations
+    y = zeros(Float64, N)
+    for  i in eachindex(t) 
+        for j in eachindex(beta.xhat)
+            y[i] += real.(beta.xhat[j] * exp(2π*im*beta.f[j]*t[i]))
+        end
+    end
+    return EvenlySampledTimeseries(y./N, t)
+end
+
+function convolve(w::EvenlySampledTimeseries,y::EvenlySampledTimeseries)
+    # require time sampling to be equal
+    (first(diff(w.t)) != first(diff(y.t))) &&
+    error("time sampling required to be consistent")
+
+    # w required to have a zero time for reference
+    i0 = findfirst(iszero, w.t)
+            
+    if isempty(i0)
+        # if no zero, could add code to extrapolate off end of time grid
+        error("time grid not consistent")
+    end
+            
+    h = zero(y.x) # output
+    nmin = minimum(eachindex(y.x))
+    nmax = maximum(eachindex(y.x))
+    for n in eachindex(y.x)
+        # println(n)
+	for m in eachindex(w.x)
+	    if (nmin <= (n-m+i0) <= nmax) # check bounds
+		h[n] += w.x[m] * y.x[n-m+i0]
+            elseif (n-m+i0) < nmin
+                # assume equilibrium at start
+                h[n] += w.x[m] * y.x[nmin]
+            elseif (n-m+i0) < nmax
+                # assume equilibrium at end
+                h[n] += w.x[m] * y.x[nmax]
+	    end
+	end
+    end
+    return EvenlySampledTimeseries(h, y.t)
+end
+
+function Base.:(/)(h::FourierTransform, x::FourierTransform)
+    (h.f != x.f) && error("frequencies do not match")
+    return FourierTransform(h.xhat ./ x.xhat, h.f)
+end
+
+function periodogram(y::EvenlySampledTimeseries)
+        ŷ = FourierTransform(y)
+
+        # compute spectrum
+        ispositive = x -> x > 0
+        ff = findall(ispositive, ŷ.f)
+        Y = ŷ.xhat[ff]
+        freq_i = ŷ.f[ff]
+        T = SpectraFromScratch.record_length(y)
+    N = length(y.x)
+    # check that "2" is appropriate for zero-frequency coefficient
+    return FrequencySpectrum((2*T/N^2).*Y.*conj(Y), freq_i)
 end
 
 """
@@ -59,7 +215,7 @@ end
  Tom Farrar, 2016, jfarrar@whoi.edu
  Ported to Julia, Jake Gebbie, 2021, jgebbie@whoi.edu =#
 """
-function band_avg(yy,num,dim=missing)
+function band_average(yy, num; dim=missing)
     numdims = ndims(yy)
     nyy = size(yy)
 
@@ -100,9 +256,13 @@ function band_avg(yy,num,dim=missing)
     end
 
     # take the average
-    yy_avg=yy_avg./num
-    
-    return yy_avg
+    return yy_avg./num
+end
+
+function band_average(psi::FrequencySpectrum, num; dim=missing)
+    yy_avg = band_average(psi.psi, num, dim=dim)
+    f_avg = band_average(psi.f, num, dim=dim)
+    return FrequencySpectrum(yy_avg, f_avg)
 end
 
 """
