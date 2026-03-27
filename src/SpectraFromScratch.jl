@@ -96,7 +96,7 @@ function centered_ifft(beta::FourierTransform, t::AbstractVector)
     # assume that time axis needs shifting for beta from the FFT.
     tshift = t .- first(t)
     y = ifft(ifftshift(OffsetArrays.no_offset_view(beta.xhat)))
-    println("largest complex component is ", maximum(real.(im.*y)))
+    println("largest complex component is ", maximum(abs.(real.(im.*y))))
     return EvenlySampledTimeseries(real.(y), t)
 end
 
