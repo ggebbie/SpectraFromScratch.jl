@@ -122,6 +122,45 @@ using Statistics
         end
     
     end
-    
+    @testset "convolution" begin
+        function rectangle(T,τ) 
+            M = length(τ) # length(rectangle(Trectangle,τ))
+            Mmax = convert(Int,(M-1)/2) 
+	    w = zeros(length(τ))
+	    for i in eachindex(w)
+		if abs(τ[i]) <= T
+		    w[i] += 1
+		end
+	    end
+            w /= sum(w)
+            return OffsetArray(w, -Mmax:Mmax)
+        end
+
+        function convolve(w::OffsetArray,y::EvenlySampledTimeseries)
+            x = y.x
+	    h = 0.0*similar(x)
+	    tmin = minimum(eachindex(x))
+	    tmax = maximum(eachindex(x))
+	    for tt in eachindex(x)
+		for mm in eachindex(w)
+		    if (tmin <= (tt-mm) <= tmax) # check bounds
+			h[tt] += w[mm] * x[tt-mm]
+		    end
+		end
+	    end
+	    return EvenlySampledTimeseries(h, y.t)
+        end
+        M = length(rectangle(Trectangle,τ))
+        Mmax = convert(Int,(M-1)/2) 
+        τ = range(-20,20,step=1)
+        Trectangle = 6
+        w = rectangle(Trectangle,τ)
+        N_convolve = 50
+        t_convolve = 0:N_convolve-1
+        x = EvenlySampledTimeseries( randn(N_convolve), t_convolve)
+
+        convolve(w,x)
+
+    end    
     
 end
