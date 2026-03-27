@@ -150,6 +150,57 @@ function EvenlySampledTimeseries(beta::FourierTransform, t::AbstractVector)
     return EvenlySampledTimeseries(y./N, t)
 end
 
+function convolve(w::EvenlySampledTimeseries,y::EvenlySampledTimeseries)
+    # require time sampling to be equal
+    (first(diff(w.t)) != first(diff(y.t))) &&
+    error("time sampling required to be consistent")
+
+    # w required to have a zero time for reference
+    i0 = findfirst(iszero, w.t)
+            
+    if isempty(i0)
+        # if no zero, could add code to extrapolate off end of time grid
+        error("time grid not consistent")
+    end
+            
+    h = zero(y.x) # output
+    nmin = minimum(eachindex(y.x))
+    nmax = maximum(eachindex(y.x))
+    for n in eachindex(y.x)
+        println(n)
+	for m in eachindex(w.x)
+	    if (nmin <= (n-m+i0) <= nmax) # check bounds
+		h[n] += w.x[m] * y.x[n-m+i0]
+            elseif (n-m+i0) < nmin
+                # assume equilibrium at start
+                h[n] += w.x[m] * y.x[nmin]
+            elseif (n-m+i0) < nmax
+                # assume equilibrium at end
+                h[n] += w.x[m] * y.x[nmax]
+	    end
+	end
+    end
+    return EvenlySampledTimeseries(h, y.t)
+end
+
+function Base.(/)(h::FourierTransform, x::FourierTransform)
+    (h.f != x.f) && error("frequencies do not match")
+    return FourierTransform(h.xhat ./ x.xhat, h.f)
+end
+
+function periodogram(y::EvenlySampledTimeseries)
+        ŷ = FourierTransform(y)
+
+        # compute spectrum
+        ispositive = x -> x > 0
+        ff = findall(ispositive, ŷ.f)
+        Y = ŷ.xhat[ff]
+        freq_i = ŷ.f[ff]
+        T = SpectraFromScratch.record_length(y)
+    N = length(y.x)
+    # check that "2" is appropriate for zero-frequency coefficient
+    return FrequencySpectrum((2*T/N^2).*Y.*conj(Y), freq_i)
+end
 
 """
  function band_avg.jl   Block averages for band averaging
