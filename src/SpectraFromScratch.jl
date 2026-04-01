@@ -17,12 +17,12 @@ export periodogram
 
 import Base: /
 
-struct FourierTransform{T<:Number,C<:Complex}
+struct FourierTransform{T<:Number,C<:Number}
     xhat::AbstractVector{C}
     f::AbstractVector{T}
 end
 
-struct FrequencySpectrum{T<:Real}
+struct FrequencySpectrum{T}
     psi::AbstractVector
     f::AbstractVector
     function FrequencySpectrum(psi, f)
@@ -62,7 +62,7 @@ function fourier_frequencies(y::EvenlySampledTimeseries)
     return fourier_frequencies(m, T)
 end
 
-sampling_resolution(y::EvenlySampledTimeseries) = first(diff(y.t))
+sampling_resolution(y::EvenlySampledTimeseries) = -first(diff(y.t))
 
 record_length(y::EvenlySampledTimeseries) = length(y) * sampling_resolution(y)
 
@@ -87,8 +87,7 @@ record_length(y::EvenlySampledTimeseries) = length(y) * sampling_resolution(y)
 - Julia version, G Jake Gebbie, 2021, ggebbie@whoi.edu
 
 # Arguments
-- `x`: vector to be transformed
-- `Δt`: time increment
+- `x::EvenlySampledTimeseries`
 
 # Output
 - `x̂`: centered discrete Fourier transform
@@ -97,10 +96,11 @@ record_length(y::EvenlySampledTimeseries) = length(y) * sampling_resolution(y)
 function centered_fft(y::EvenlySampledTimeseries)
     m = fourier_modes(y)
     T = record_length(y) 
-
+    println(m)
+    println(T)
     #the dimensional frequency scale, this is an "iterator", not a vector, in julia
     f = fourier_frequencies(m, T)
-    
+    println(f)
     #=swaps the halves of the FFT vector so that 
     the zero frequency is in the center.
     If you are going to compute an IFFT, 
@@ -117,7 +117,6 @@ function centered_ifft(beta::FourierTransform, t::AbstractVector)
     println("largest complex component is ", maximum(abs.(real.(im.*y))))
     return EvenlySampledTimeseries(real.(y), t)
 end
-
 
 function FourierTransform(y::EvenlySampledTimeseries)
     #the dimensional frequency scale, this is an "iterator", not a vector, in julia
@@ -138,6 +137,8 @@ function FourierTransform(y::EvenlySampledTimeseries)
     end
     return FourierTransform(β, f)
 end
+
+Base.length(x::FourierTransform) = 1
 
 function EvenlySampledTimeseries(beta::FourierTransform, t::AbstractVector)
     N = length(beta.f) # number of observations
@@ -190,16 +191,44 @@ end
 
 function periodogram(y::EvenlySampledTimeseries)
         ŷ = FourierTransform(y)
+    return periodogram(ŷ)   
+    #     # compute spectrum
+    #     ispositive = x -> x > 0
+    #     ff = findall(ispositive, ŷ.f)
+    #     Y = ŷ.xhat[ff]
+    #     freq_i = ŷ.f[ff]
+    #     T = SpectraFromScratch.record_length(y)
+    # N = length(y.x)
+    # # check that "2" is appropriate for zero-frequency coefficient
+    # return FrequencySpectrum((2*T/N^2).*Y.*conj(Y), freq_i)
+end
 
-        # compute spectrum
-        ispositive = x -> x > 0
-        ff = findall(ispositive, ŷ.f)
-        Y = ŷ.xhat[ff]
-        freq_i = ŷ.f[ff]
-        T = SpectraFromScratch.record_length(y)
-    N = length(y.x)
-    # check that "2" is appropriate for zero-frequency coefficient
-    return FrequencySpectrum((2*T/N^2).*Y.*conj(Y), freq_i)
+function periodogram(ŷ::FourierTransform)
+    # # compute spectrum
+    ispositive = x -> x > zero(x)
+    ff = findall(ispositive, ŷ.f)
+    # # println(ff)
+    # # Y = ŷ.xhat[ff]
+    # # println(Y)
+    freq_i = ŷ.f[ff]
+    T = 1 / ŷ.f[1] #SpectraFromScratch.record_length(y)
+    println("T ",T)
+    N = length(ŷ.xhat) #length(y.x)
+    println(N)
+    # # # check that "2" is appropriate for zero-frequency coefficient
+    # # # return FrequencySpectrum((2*T/N^2).*Y.*conj(Y), freq_i)
+    # # return FrequencySpectrum((2*T/N^2)*(abs.(Y).^2), freq_i)
+    # # e
+    psi = zeros(eltype(abs(first(ŷ.xhat))^2), length(ff))
+    for m in eachindex(ŷ.xhat)
+        println(m)
+        if m < 0
+            psi[-m] += abs(ŷ.xhat[m])^2
+        elseif m > 0
+            psi[m] += abs(ŷ.xhat[m])^2
+        end
+    end
+    return FrequencySpectrum((T/N^2)*psi, freq_i)     
 end
 
 """
@@ -301,6 +330,31 @@ function totalspectralenergy(Ψ,f)
     return e = 2sum(Ψ)*Δf
     #return e = 2sum(Ψ)/nf^2
 end
+function totalspectralenergy(Ψ::FrequencySpectrum)
+    f = Ψ.f
+    psi = Ψ.psi
+    #nf = length(f)
+    !iszero(first(f)) ? (Δf = first(f)) : (Δf = f[2])
+    return e = 2sum(psi)*Δf
+    #return e = 2sum(Ψ)/nf^2
+end
+
+function totalspectralenergy(x::FourierTransform)
+    N = length(x.xhat)
+    e = zero(eltype((abs(first(x.xhat))^2)))
+    for m in eachindex(x.xhat)
+        # do not include energy in mean
+        if m ≠ 0
+            e += abs(x.xhat[m])^2
+        end
+    end
+    return e/N^2
+    # #nf = length(f)
+    # !iszero(first(f)) ? (Δf = first(f)) : (Δf = f[2])
+    # return e = 2sum(Ψ)*Δf
+    #return e = 2sum(Ψ)/nf^2
+end
+
 
 # """
 #     spectralpowerlaw(β,f) = f.^-β  
