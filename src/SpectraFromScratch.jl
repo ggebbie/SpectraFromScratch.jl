@@ -207,21 +207,11 @@ function periodogram(ŷ::FourierTransform)
     # # compute spectrum
     ispositive = x -> x > zero(x)
     ff = findall(ispositive, ŷ.f)
-    # # println(ff)
-    # # Y = ŷ.xhat[ff]
-    # # println(Y)
     freq_i = ŷ.f[ff]
     T = 1 / ŷ.f[1] #SpectraFromScratch.record_length(y)
-    println("T ",T)
     N = length(ŷ.xhat) #length(y.x)
-    println(N)
-    # # # check that "2" is appropriate for zero-frequency coefficient
-    # # # return FrequencySpectrum((2*T/N^2).*Y.*conj(Y), freq_i)
-    # # return FrequencySpectrum((2*T/N^2)*(abs.(Y).^2), freq_i)
-    # # e
-    psi = zeros(eltype(abs(first(ŷ.xhat))^2), length(ff))
+    psi = zeros(eltype(abs(first(ŷ.xhat))^2), maximum(abs.(eachindex(ŷ.xhat))))
     for m in eachindex(ŷ.xhat)
-        println(m)
         if m < 0
             psi[-m] += abs(ŷ.xhat[m])^2
         elseif m > 0
@@ -335,7 +325,7 @@ function totalspectralenergy(Ψ::FrequencySpectrum)
     psi = Ψ.psi
     #nf = length(f)
     !iszero(first(f)) ? (Δf = first(f)) : (Δf = f[2])
-    return e = 2sum(psi)*Δf
+    return e = sum(psi)*Δf
     #return e = 2sum(Ψ)/nf^2
 end
 
