@@ -10,8 +10,8 @@ export EvenlySampledTimeseries
 export centered_fft
 export centered_ifft
 export band_average
-export confid, totalspectralenergy
-export spectralpowerlaw, spectralbasis, observationalmatrix
+export confid, total_spectral_energy
+export spectral_power_law, spectralbasis, observationalmatrix
 export convolve
 export periodogram
 
@@ -62,7 +62,7 @@ function fourier_frequencies(y::EvenlySampledTimeseries)
     return fourier_frequencies(m, T)
 end
 
-sampling_resolution(y::EvenlySampledTimeseries) = -first(diff(y.t))
+sampling_resolution(y::EvenlySampledTimeseries) = first(diff(y.t))
 
 record_length(y::EvenlySampledTimeseries) = length(y) * sampling_resolution(y)
 
@@ -205,20 +205,23 @@ end
 
 function periodogram(ŷ::FourierTransform)
     # # compute spectrum
-    ispositive = x -> x > zero(x)
-    ff = findall(ispositive, ŷ.f)
-    freq_i = ŷ.f[ff]
+    # ispositive = x -> x > zero(x)
+    # ff = findall(ispositive, ŷ.f)
+    # freq_i = ŷ.f[ff]
     T = 1 / ŷ.f[1] #SpectraFromScratch.record_length(y)
     N = length(ŷ.xhat) #length(y.x)
     psi = zeros(eltype(abs(first(ŷ.xhat))^2), maximum(abs.(eachindex(ŷ.xhat))))
+    f = zeros(eltype(first(ŷ.f)), maximum(abs.(eachindex(ŷ.xhat))))
     for m in eachindex(ŷ.xhat)
         if m < 0
             psi[-m] += abs(ŷ.xhat[m])^2
+            f[-m] = abs(ŷ.f[m])
         elseif m > 0
             psi[m] += abs(ŷ.xhat[m])^2
+            f[m] = ŷ.f[m] # overwrite just to be sure
         end
     end
-    return FrequencySpectrum((T/N^2)*psi, freq_i)     
+    return FrequencySpectrum((T/N^2)*psi, f)     
 end
 
 """
@@ -306,7 +309,7 @@ function confid(α,ν)
 end
 
 """
-    function totalspectralenergy(Φ,f)
+    function total_spectral_energy(Φ,f)
 
 # Arguments
 - `Φ`: power spectral density
@@ -314,22 +317,16 @@ end
 # Output
 - `e`: total energy
 """
-function totalspectralenergy(Ψ,f)
-    #nf = length(f)
+function total_spectral_energy(Ψ,f)
     !iszero(first(f)) ? (Δf = first(f)) : (Δf = f[2])
-    return e = 2sum(Ψ)*Δf
-    #return e = 2sum(Ψ)/nf^2
+    return e = sum(Ψ)*Δf
 end
-function totalspectralenergy(Ψ::FrequencySpectrum)
+function total_spectral_energy(Ψ::FrequencySpectrum)
     f = Ψ.f
     psi = Ψ.psi
-    #nf = length(f)
-    !iszero(first(f)) ? (Δf = first(f)) : (Δf = f[2])
-    return e = sum(psi)*Δf
-    #return e = 2sum(Ψ)/nf^2
+    return total_spectral_energy(psi, f)
 end
-
-function totalspectralenergy(x::FourierTransform)
+function total_spectral_energy(x::FourierTransform)
     N = length(x.xhat)
     e = zero(eltype((abs(first(x.xhat))^2)))
     for m in eachindex(x.xhat)
@@ -339,15 +336,10 @@ function totalspectralenergy(x::FourierTransform)
         end
     end
     return e/N^2
-    # #nf = length(f)
-    # !iszero(first(f)) ? (Δf = first(f)) : (Δf = f[2])
-    # return e = 2sum(Ψ)*Δf
-    #return e = 2sum(Ψ)/nf^2
 end
 
-
 # """
-#     spectralpowerlaw(β,f) = f.^-β  
+#     spectral_power_law(β,f) = f.^-β  
 
 # # Arguments
 # - `f`: frequencies
@@ -357,7 +349,7 @@ end
 # # Output
 # - `Φ`: spectral energy density
 # """
-# function spectralpowerlaw(f,βlo,e=1.0,βhi=0.0)
+# function spectral_power_law(f,βlo,e=1.0,βhi=0.0)
 #     nf = length(f)
 #     Ψ = f.^-βlo  
 
@@ -375,8 +367,8 @@ end
 
 # for units
 # type of `f` requires uniform vector
-#function spectralpowerlaw(f::StepRangeLen{<:Quantity{<:Number}},βlo,σ2=1.0,βhi=0.0)
-function spectralpowerlaw(f, βlo, σ2=1.0; βhi=nothing, fbreak=nothing)
+#function spectral_power_law(f::StepRangeLen{<:Quantity{<:Number}},βlo,σ2=1.0,βhi=0.0)
+function spectral_power_law(f, βlo, σ2=1.0; βhi=nothing, fbreak=nothing)
     nf = length(f)
     fnondim = f ./ first(f)
     T = 1 / first(f)
@@ -389,8 +381,8 @@ function spectralpowerlaw(f, βlo, σ2=1.0; βhi=nothing, fbreak=nothing)
         Ψnondim .+= (1/scale)*fnondim.^-βhi
     end
 
-    σ2nondim = 2sum(Ψnondim)/T # nf^2
-    return (σ2/σ2nondim) .* Ψnondim
+    σ2nondim = sum(Ψnondim)/T # nf^2
+    return FrequencySpectrum((σ2/σ2nondim) .* Ψnondim, f)
 end
 
 

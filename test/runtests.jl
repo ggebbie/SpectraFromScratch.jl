@@ -1,10 +1,11 @@
-# using Revise
+using Revise
 using SpectraFromScratch
 using Distributions
 using Test
 using Statistics
 
 @testset "SpectraFromScratch.jl" begin
+    
     N  = 2000 # underscore just for visual appearance
     Δt = 1      # could make \Delta in Julia REPL but not in notebook
     t  = Δt:Δt:N*Δt
@@ -17,6 +18,7 @@ using Statistics
     #xlabel!("Time")
 
     @testset "FourierTransform struct" begin
+        
         yy = yb # just renaming yb to mimic matlab code
         N = length(yy)
         T = N * Δt
@@ -74,12 +76,27 @@ using Statistics
         Ψraw = SpectraFromScratch.periodogram(y)
         @test all(Ψraw.psi .> zero(first(Ψraw.psi)))
 
+        # test the total spectral energy
+        @test isapprox(total_spectral_energy(Ψraw), sum(y.x.^2)/length(y.x))
+        @test isapprox(total_spectral_energy(Ψraw), total_spectral_energy(ŷq))
+
+
+        σ2target = 10.0
+        psi = spectral_power_law(Ψraw.f, -2.0, σ2target)
+        @test isapprox(total_spectral_energy(psi), σ2target)
+
+
+        ## power law with a break
+        fbreak = 1/(100)
+        Ψb = spectral_power_law(Ψraw.f, -2.0, σ2target, βhi=-1.0, fbreak=fbreak)
+        @test isapprox( total_spectral_energy(Ψb),σ2target)
+        
         # Band average the raw spectrum over 𝑛𝑑 frequency bands-- this could be done by an algorithm like equation ??? or by computing a running average and subsampling. Generate the new frequency vector, either by subsampling the Fourier frequencies at the interval of 𝑛𝑑/𝑇 or by band averaging the frequency vector. --> We will use our band-averaging function on both the spectrum and the frequency vector
         nbands = 11
         Ψavg = band_average(Ψraw, nbands)
 
         @test length(Ψraw.psi) > length(Ψavg.psi)
-        
+
         #plot(freq,real(Ψavg),leg=false)
         #plot!(freq,imag(Ψavg),leg=false)
         #title!("Band-averaged spectral estimate")

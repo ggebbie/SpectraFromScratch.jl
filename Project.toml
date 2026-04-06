@@ -1,6 +1,6 @@
 name = "SpectraFromScratch"
 uuid = "d75dfb16-ab8e-4c05-ba24-63f12bc833ed"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["G Jake Gebbie <ggebbie@whoi.edu>"]
 
 [deps]
