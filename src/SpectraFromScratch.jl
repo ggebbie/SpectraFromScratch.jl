@@ -35,23 +35,38 @@ struct FrequencySpectrum{T}
     end
 end
 
-struct EvenlySampledTimeseries{T <: Number}
+struct EvenlySampledTimeseries{T <: Number, R <: Number}
     x::AbstractVector{T}
-    t::AbstractVector
-    function EvenlySampledTimeseries(x::AbstractVector, t::AbstractVector)
-        length(x) != length(t) && error("lengths do not match")
-        if all(iszero(diff(diff(t))))
-            return new{eltype(x)}(x, t)
-        else
-            error("not evenly spaced")
-        end
-    end
+    t0::R
+    dt::R
 end
 Base.length(y::EvenlySampledTimeseries) = length(y.x)
+
+Base.propertynames(x::EvenlySampledTimeseries, private::Bool=false) =
+      private ? (:t,  fieldnames(typeof(x))...) : fieldnames(typeof(x))
+
+function Base.getproperty(x::EvenlySampledTimeseries, d::Symbol)
+    if d === :t
+        # reconstruct times
+        return range(start=x.t0, step=x.dt, length=length(x.x))
+    else
+        return getfield(x, d)
+    end
+end
+
+function EvenlySampledTimeseries(x::AbstractVector, t::AbstractVector)
+    length(x) != length(t) && error("lengths do not match")
+    if all(iszero(diff(diff(t))))
+        return EvenlySampledTimeseries{eltype(x), eltype(t)}(x, first(t), t[2] - t[1])
+    else
+        error("not evenly spaced")
+    end
+end
 
 fourier_modes(N::Number) = iseven(N) ?
 	                       (m = (-convert(Int,N/2):convert(Int,(N/2)-1))) :
 	                       (m = (-convert(Int,(N-1)/2):convert(Int,((N-1)/2))))
+
 fourier_modes(y::EvenlySampledTimeseries) = fourier_modes(length(y))
 
 fourier_frequencies(m, T) = OffsetArray(m/T, m)
@@ -96,6 +111,7 @@ record_length(y::EvenlySampledTimeseries) = length(y) * sampling_resolution(y)
 function centered_fft(y::EvenlySampledTimeseries)
     m = fourier_modes(y)
     T = record_length(y) 
+    
     println(m)
     println(T)
     #the dimensional frequency scale, this is an "iterator", not a vector, in julia

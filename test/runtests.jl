@@ -10,12 +10,10 @@ using Statistics
     Δt = 1      # could make \Delta in Julia REPL but not in notebook
     t  = Δt:Δt:N*Δt
     f  = 20/((N-1)*Δt)
+
+    # A sinusoid plus noise
     noise_val = 0.2 # desired noise std deviation
     yb = 1 .+ noise_val.*randn(N) .+ 0.75 .* sin.(2π*f*t)
-
-    #plot(t,yb, leg=false)
-    #title!("A sinusoid plus noise")
-    #xlabel!("Time")
 
     @testset "FourierTransform struct" begin
         
@@ -23,10 +21,6 @@ using Statistics
         N = length(yy)
         T = N * Δt
         yy .-= mean(yy) # remove the mean
-
-        # Compute the FFT of the entire tapered record.
-        # Y,freq_i = centered_fft(yy,Δt)
-        # ŷ_orig = FourierTransform(Y,freq_i)
 
         y = EvenlySampledTimeseries(yy, t)
         @time ŷ_orig = centered_fft(y)
