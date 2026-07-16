@@ -1,30 +1,26 @@
-# using Revise
+using Revise
 using SpectraFromScratch
 using Distributions
 using Test
 using Statistics
 
 @testset "SpectraFromScratch.jl" begin
+    
     N  = 2000 # underscore just for visual appearance
     Δt = 1      # could make \Delta in Julia REPL but not in notebook
     t  = Δt:Δt:N*Δt
     f  = 20/((N-1)*Δt)
+
+    # A sinusoid plus noise
     noise_val = 0.2 # desired noise std deviation
     yb = 1 .+ noise_val.*randn(N) .+ 0.75 .* sin.(2π*f*t)
 
-    #plot(t,yb, leg=false)
-    #title!("A sinusoid plus noise")
-    #xlabel!("Time")
-
     @testset "FourierTransform struct" begin
+        
         yy = yb # just renaming yb to mimic matlab code
         N = length(yy)
         T = N * Δt
         yy .-= mean(yy) # remove the mean
-
-        # Compute the FFT of the entire tapered record.
-        # Y,freq_i = centered_fft(yy,Δt)
-        # ŷ_orig = FourierTransform(Y,freq_i)
 
         y = EvenlySampledTimeseries(yy, t)
         @time ŷ_orig = centered_fft(y)
@@ -43,7 +39,7 @@ using Statistics
         @time ỹ_orig2 = centered_ifft(ŷ_orig, y.t)
         @test isapprox(y.x, ỹ_orig2.x) # now passes
         @test isapprox(y.t, ỹ_orig2.t) 
-    end
+   end
 
     @testset "bin averaging" begin
         navg = 20
@@ -74,12 +70,27 @@ using Statistics
         Ψraw = SpectraFromScratch.periodogram(y)
         @test all(Ψraw.psi .> zero(first(Ψraw.psi)))
 
+        # test the total spectral energy
+        @test isapprox(total_spectral_energy(Ψraw), sum(y.x.^2)/length(y.x))
+        @test isapprox(total_spectral_energy(Ψraw), total_spectral_energy(ŷq))
+
+
+        σ2target = 10.0
+        psi = spectral_power_law(Ψraw.freq, -2.0, σ2target)
+        @test isapprox(total_spectral_energy(psi), σ2target)
+
+
+        ## power law with a break
+        fbreak = 1/(100)
+        Ψb = spectral_power_law(Ψraw.freq, -2.0, σ2target, βhi=-1.0, fbreak=fbreak)
+        @test isapprox( total_spectral_energy(Ψb),σ2target)
+        
         # Band average the raw spectrum over 𝑛𝑑 frequency bands-- this could be done by an algorithm like equation ??? or by computing a running average and subsampling. Generate the new frequency vector, either by subsampling the Fourier frequencies at the interval of 𝑛𝑑/𝑇 or by band averaging the frequency vector. --> We will use our band-averaging function on both the spectrum and the frequency vector
         nbands = 11
         Ψavg = band_average(Ψraw, nbands)
 
         @test length(Ψraw.psi) > length(Ψavg.psi)
-        
+
         #plot(freq,real(Ψavg),leg=false)
         #plot!(freq,imag(Ψavg),leg=false)
         #title!("Band-averaged spectral estimate")
@@ -105,7 +116,7 @@ using Statistics
             ν = 19 # unicode nu looks like "v" on my computer
             α = 0.025
             χ = cquantile(Chisq(ν), α) 
-            println(ν/χ)
+            println("dof/quantile ratio:",ν/χ)
 
             #=    should be sigma^2/S^2 confidence bounds where sigma^2 is true variance
     check value (J&W) is alpha =.05, nu=19, lower bound is .58
@@ -114,8 +125,8 @@ using Statistics
 
             @test 0.59 > lower > 0.57
             @test 2.14 > upper > 2.08 # should be able to narrow this range and still pass
-            println(lower)
-            println(upper)
+            println("lower confidence limit: ", lower)
+            println("upper confidence limit: ", upper)
 
         end
     
@@ -153,21 +164,21 @@ using Statistics
         @time ŵ  = centered_fft(w)
         
         ŵ_residual = ĥ / x̂
-       # ŵ_residual = FourierTransform(ĥ.xhat ./ x̂.xhat, ĥ.f)
+       # ŵ_residual = FourierTransform(ĥ.coeff ./ x̂.coeff, ĥ.freq)
 
-        @test maximum(abs.(ŵ_residual.xhat)) < 1.1
-        @test minimum(abs.(ŵ_residual.xhat)) > 0.9
+        @test maximum(abs.(ŵ_residual.coeff)) < 1.1
+        @test minimum(abs.(ŵ_residual.coeff)) > 0.9
 
-        @test maximum(abs.(ŵ.xhat)) < 1.1
-        @test minimum(abs.(ŵ.xhat)) > 0.9
+        @test maximum(abs.(ŵ.coeff)) < 1.1
+        @test minimum(abs.(ŵ.coeff)) > 0.9
 
         N_padded = convert(Int, floor(N_convolve/2))
         τ_padded = range(-N_padded, N_padded, step=1)
         w_padded = rectangle(Trectangle,τ_padded)
         @time ŵ_padded  = centered_fft(w_padded)
 
-        @test maximum(abs.(ŵ_padded.xhat)) < 1.1
-        @test minimum(abs.(ŵ_padded.xhat)) > 0.9
+        @test maximum(abs.(ŵ_padded.coeff)) < 1.1
+        @test minimum(abs.(ŵ_padded.coeff)) > 0.9
 
     end    
 end
