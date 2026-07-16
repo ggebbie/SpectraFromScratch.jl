@@ -76,13 +76,13 @@ using Statistics
 
 
         σ2target = 10.0
-        psi = spectral_power_law(Ψraw.f, -2.0, σ2target)
+        psi = spectral_power_law(Ψraw.freq, -2.0, σ2target)
         @test isapprox(total_spectral_energy(psi), σ2target)
 
 
         ## power law with a break
         fbreak = 1/(100)
-        Ψb = spectral_power_law(Ψraw.f, -2.0, σ2target, βhi=-1.0, fbreak=fbreak)
+        Ψb = spectral_power_law(Ψraw.freq, -2.0, σ2target, βhi=-1.0, fbreak=fbreak)
         @test isapprox( total_spectral_energy(Ψb),σ2target)
         
         # Band average the raw spectrum over 𝑛𝑑 frequency bands-- this could be done by an algorithm like equation ??? or by computing a running average and subsampling. Generate the new frequency vector, either by subsampling the Fourier frequencies at the interval of 𝑛𝑑/𝑇 or by band averaging the frequency vector. --> We will use our band-averaging function on both the spectrum and the frequency vector
@@ -164,21 +164,21 @@ using Statistics
         @time ŵ  = centered_fft(w)
         
         ŵ_residual = ĥ / x̂
-       # ŵ_residual = FourierTransform(ĥ.xhat ./ x̂.xhat, ĥ.f)
+       # ŵ_residual = FourierTransform(ĥ.coeff ./ x̂.coeff, ĥ.freq)
 
-        @test maximum(abs.(ŵ_residual.xhat)) < 1.1
-        @test minimum(abs.(ŵ_residual.xhat)) > 0.9
+        @test maximum(abs.(ŵ_residual.coeff)) < 1.1
+        @test minimum(abs.(ŵ_residual.coeff)) > 0.9
 
-        @test maximum(abs.(ŵ.xhat)) < 1.1
-        @test minimum(abs.(ŵ.xhat)) > 0.9
+        @test maximum(abs.(ŵ.coeff)) < 1.1
+        @test minimum(abs.(ŵ.coeff)) > 0.9
 
         N_padded = convert(Int, floor(N_convolve/2))
         τ_padded = range(-N_padded, N_padded, step=1)
         w_padded = rectangle(Trectangle,τ_padded)
         @time ŵ_padded  = centered_fft(w_padded)
 
-        @test maximum(abs.(ŵ_padded.xhat)) < 1.1
-        @test minimum(abs.(ŵ_padded.xhat)) > 0.9
+        @test maximum(abs.(ŵ_padded.coeff)) < 1.1
+        @test minimum(abs.(ŵ_padded.coeff)) > 0.9
 
     end    
 end
