@@ -39,7 +39,7 @@ using Statistics
         @time ỹ_orig2 = centered_ifft(ŷ_orig, y.t)
         @test isapprox(y.x, ỹ_orig2.x) # now passes
         @test isapprox(y.t, ỹ_orig2.t) 
-    end
+   end
 
     @testset "bin averaging" begin
         navg = 20
@@ -116,7 +116,7 @@ using Statistics
             ν = 19 # unicode nu looks like "v" on my computer
             α = 0.025
             χ = cquantile(Chisq(ν), α) 
-            println(ν/χ)
+            println("dof/quantile ratio:",ν/χ)
 
             #=    should be sigma^2/S^2 confidence bounds where sigma^2 is true variance
     check value (J&W) is alpha =.05, nu=19, lower bound is .58
@@ -125,8 +125,8 @@ using Statistics
 
             @test 0.59 > lower > 0.57
             @test 2.14 > upper > 2.08 # should be able to narrow this range and still pass
-            println(lower)
-            println(upper)
+            println("lower confidence limit: ", lower)
+            println("upper confidence limit: ", upper)
 
         end
     

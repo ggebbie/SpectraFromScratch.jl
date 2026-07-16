@@ -58,7 +58,6 @@ end
 function EvenlySampledTimeseries(x::AbstractVector, t::AbstractVector)
     length(x) != length(t) && error("lengths do not match")
     if all( abs.(diff(diff(t))) .< 1e-8*one(eltype(t)))
-        println("here")
 
         # minimize machine error
         dt = (last(t)-first(t))/(length(x)-1)
@@ -117,11 +116,11 @@ function centered_fft(y::EvenlySampledTimeseries)
     m = fourier_modes(y)
     T = record_length(y) 
     
-    println(m)
-    println(T)
+    println("list of Fourier indices: ",m)
+    println("record length:",T)
     #the dimensional frequency scale, this is an "iterator", not a vector, in julia
     f = fourier_frequencies(m, T)
-    println(f)
+    println("Fourier frequencies:", f)
     #=swaps the halves of the FFT vector so that 
     the zero frequency is in the center.
     If you are going to compute an IFFT, 
