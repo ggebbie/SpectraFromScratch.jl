@@ -11,7 +11,8 @@ export centered_fft
 export centered_ifft
 export band_average
 export confid, total_spectral_energy
-export spectral_power_law, spectralbasis, observationalmatrix
+export spectral_power_law, spectral_basis
+#, observationalmatrix
 export convolve
 export periodogram
 
@@ -224,6 +225,7 @@ function periodogram(y::EvenlySampledTimeseries)
     # return FrequencySpectrum((2*T/N^2).*Y.*conj(Y), freq_i)
 end
 
+#  is this function updated?
 function periodogram(ŷ::FourierTransform)
     # # compute spectrum
     # ispositive = x -> x > zero(x)
@@ -406,7 +408,6 @@ function spectral_power_law(f, βlo, σ2=1.0; βhi=nothing, fbreak=nothing)
     return FrequencySpectrum((σ2/σ2nondim) .* Ψnondim, f)
 end
 
-
 """
     function spectralbasis(t,f)
 
@@ -423,7 +424,7 @@ end
                second (nt-1)/2 columns are cosine coefficients
                last column represents the mean value
 """
-function spectralbasis(t,f,includemean=false)
+function spectral_basis(t,f,includemean=false)
     
     Acos = Matrix{Float64}(undef,length(t),length(f))
     Asin = Matrix{Float64}(undef,length(t),length(f))
