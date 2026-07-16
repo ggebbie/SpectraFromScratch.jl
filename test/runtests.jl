@@ -22,17 +22,17 @@ using Statistics
         T = N * Δt
         yy .-= mean(yy) # remove the mean
 
-        y = EvenlySampledTimeseries(yy, t)
+        y = RegularTimeseries(yy, t)
         @time ŷ_orig = centered_fft(y)
         @time ŷ = FourierTransform(y)
 
         # Inverse Fourier Transform
-        @time ỹ = EvenlySampledTimeseries(ŷ, y.t)
+        @time ỹ = RegularTimeseries(ŷ, y.t)
         @test isapprox(y.x, ỹ.x)
         @test isapprox(y.t, ỹ.t)
 
         # needs time correction, fft assumes t=0 at first obs
-        @time ỹ_orig = EvenlySampledTimeseries(ŷ_orig, y.t.-first(y.t))
+        @time ỹ_orig = RegularTimeseries(ŷ_orig, y.t.-first(y.t))
         @test isapprox(y.x, ỹ_orig.x) # now passes
         @test isapprox(y.t, ỹ_orig.t .+ first(y.t)) 
 
@@ -64,7 +64,7 @@ using Statistics
 
         # Compute the FFT of the entire tapered record.
         # Y,freq_i = centeredFFT(yy,Δt)
-        y = EvenlySampledTimeseries(yy, t)
+        y = RegularTimeseries(yy, t)
         ŷq = FourierTransform(y)
 
         Ψraw = SpectraFromScratch.periodogram(y)
@@ -142,7 +142,7 @@ using Statistics
 		end
 	    end
             w /= sum(w)
-            return EvenlySampledTimeseries(w, τ)
+            return RegularTimeseries(w, τ)
             # return OffsetArray(w, -Mmax:Mmax)
         end
         
@@ -153,7 +153,7 @@ using Statistics
         w = rectangle(Trectangle,τ)
         N_convolve = 51
         t_convolve = 1:N_convolve
-        x = EvenlySampledTimeseries( randn(N_convolve), t_convolve)
+        x = RegularTimeseries( randn(N_convolve), t_convolve)
         h = SpectraFromScratch.convolve(w,x)
         @test h.x == x.x
         @test h.t == x.t

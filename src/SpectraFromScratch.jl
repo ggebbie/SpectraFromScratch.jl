@@ -6,7 +6,7 @@ using FFTW
 using OffsetArrays
 
 export FourierTransform
-export EvenlySampledTimeseries
+export RegularTimeseries
 export centered_fft
 export centered_ifft
 export band_average
@@ -36,17 +36,17 @@ struct FrequencySpectrum{T}
     end
 end
 
-struct EvenlySampledTimeseries{T <: Number, R <: Number}
+struct RegularTimeseries{T <: Number, R <: Number}
     x::AbstractVector{T}
     t0::R
     dt::R
 end
-Base.length(y::EvenlySampledTimeseries) = length(y.x)
+Base.length(y::RegularTimeseries) = length(y.x)
 
-Base.propertynames(x::EvenlySampledTimeseries, private::Bool=false) =
+Base.propertynames(x::RegularTimeseries, private::Bool=false) =
       private ? (:t,  fieldnames(typeof(x))...) : fieldnames(typeof(x))
 
-function Base.getproperty(x::EvenlySampledTimeseries, d::Symbol)
+function Base.getproperty(x::RegularTimeseries, d::Symbol)
     if d === :t
         # reconstruct times
         return range(start=x.t0, step=x.dt, length=length(x.x))
@@ -55,13 +55,13 @@ function Base.getproperty(x::EvenlySampledTimeseries, d::Symbol)
     end
 end
 
-function EvenlySampledTimeseries(x::AbstractVector, t::AbstractVector)
+function RegularTimeseries(x::AbstractVector, t::AbstractVector)
     length(x) != length(t) && error("lengths do not match")
     if all( abs.(diff(diff(t))) .< 1e-8*one(eltype(t)))
 
         # minimize machine error
         dt = (last(t)-first(t))/(length(x)-1)
-        return EvenlySampledTimeseries{eltype(x), eltype(t)}(x, first(t), dt)
+        return RegularTimeseries{eltype(x), eltype(t)}(x, first(t), dt)
     else
         error("not evenly spaced")
     end
@@ -71,21 +71,21 @@ fourier_modes(N::Number) = iseven(N) ?
 	                       (m = (-convert(Int,N/2):convert(Int,(N/2)-1))) :
 	                       (m = (-convert(Int,(N-1)/2):convert(Int,((N-1)/2))))
 
-fourier_modes(y::EvenlySampledTimeseries) = fourier_modes(length(y))
+fourier_modes(y::RegularTimeseries) = fourier_modes(length(y))
 
 fourier_frequencies(m, T) = OffsetArray(m/T, m)
-function fourier_frequencies(y::EvenlySampledTimeseries)
+function fourier_frequencies(y::RegularTimeseries)
     m = fourier_modes(y)
     T = record_length(y)
     #the dimensional frequency scale, this is an "iterator", not a vector, in julia
     return fourier_frequencies(m, T)
 end
 
-sampling_resolution(y::EvenlySampledTimeseries) = first(diff(y.t))
+sampling_resolution(y::RegularTimeseries) = first(diff(y.t))
 
-record_length(y::EvenlySampledTimeseries) = length(y) * sampling_resolution(y)
+record_length(y::RegularTimeseries) = length(y) * sampling_resolution(y)
 
-# function fourier_basis(y::EvenlySampledTimeseries{Tin}) where Tin
+# function fourier_basis(y::RegularTimeseries{Tin}) where Tin
 #     m = fourier_modes(y)
 #     T = record_length(y)
 #     f = fourier_frequencies(m, T)
@@ -106,13 +106,13 @@ record_length(y::EvenlySampledTimeseries) = length(y) * sampling_resolution(y)
 - Julia version, G Jake Gebbie, 2021, ggebbie@whoi.edu
 
 # Arguments
-- `x::EvenlySampledTimeseries`
+- `x::RegularTimeseries`
 
 # Output
 - `x̂`: centered discrete Fourier transform
 - `f`: dimensional frequency scale
 """
-function centered_fft(y::EvenlySampledTimeseries)
+function centered_fft(y::RegularTimeseries)
     m = fourier_modes(y)
     T = record_length(y) 
     
@@ -136,10 +136,10 @@ function centered_ifft(beta::FourierTransform, t::AbstractVector)
     y = ifft(ifftshift(OffsetArrays.no_offset_view(beta.coeff)))
     # println("largest complex component is ", maximum(abs.(real.(im.*y))))
     println("largest complex component is ", maximum(abs.(imag.(y))))
-    return EvenlySampledTimeseries(real.(y), t)
+    return RegularTimeseries(real.(y), t)
 end
 
-function FourierTransform(y::EvenlySampledTimeseries)
+function FourierTransform(y::RegularTimeseries)
     #the dimensional frequency scale, this is an "iterator", not a vector, in julia
     m = fourier_modes(y)
     f = fourier_frequencies(y)
@@ -161,7 +161,7 @@ end
 
 Base.length(x::FourierTransform) = 1
 
-function EvenlySampledTimeseries(beta::FourierTransform, t::AbstractVector)
+function RegularTimeseries(beta::FourierTransform, t::AbstractVector)
     N = length(beta.freq) # number of observations
     y = zeros(Float64, N)
     for  i in eachindex(t) 
@@ -169,10 +169,10 @@ function EvenlySampledTimeseries(beta::FourierTransform, t::AbstractVector)
             y[i] += real.(beta.coeff[j] * exp(2π*im*beta.freq[j]*t[i]))
         end
     end
-    return EvenlySampledTimeseries(y./N, t)
+    return RegularTimeseries(y./N, t)
 end
 
-function convolve(w::EvenlySampledTimeseries,y::EvenlySampledTimeseries)
+function convolve(w::RegularTimeseries,y::RegularTimeseries)
     # require time sampling to be equal
     (first(diff(w.t)) != first(diff(y.t))) &&
     error("time sampling required to be consistent")
@@ -202,7 +202,7 @@ function convolve(w::EvenlySampledTimeseries,y::EvenlySampledTimeseries)
 	    end
 	end
     end
-    return EvenlySampledTimeseries(h, y.t)
+    return RegularTimeseries(h, y.t)
 end
 
 function Base.:(/)(h::FourierTransform, x::FourierTransform)
@@ -210,7 +210,7 @@ function Base.:(/)(h::FourierTransform, x::FourierTransform)
     return FourierTransform(h.coeff ./ x.coeff, h.freq)
 end
 
-function periodogram(y::EvenlySampledTimeseries)
+function periodogram(y::RegularTimeseries)
         ŷ = FourierTransform(y)
     return periodogram(ŷ)   
     #     # compute spectrum
