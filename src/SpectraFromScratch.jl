@@ -17,14 +17,14 @@ export periodogram
 
 import Base: /
 
-struct FourierTransform{T<:Number,C<:Number}
-    xhat::AbstractVector{C}
-    f::AbstractVector{T}
+struct FourierTransform{T<:Number, C<:Number}
+    coeff::AbstractVector{C}
+    freq::AbstractVector{T}
 end
 
 struct FrequencySpectrum{T}
     psi::AbstractVector
-    f::AbstractVector
+    freq::AbstractVector
     function FrequencySpectrum(psi, f)
         isnegative = (x -> x < zero(x))
         if any(isnegative.(f))
@@ -56,8 +56,12 @@ end
 
 function EvenlySampledTimeseries(x::AbstractVector, t::AbstractVector)
     length(x) != length(t) && error("lengths do not match")
-    if all(iszero(diff(diff(t))))
-        return EvenlySampledTimeseries{eltype(x), eltype(t)}(x, first(t), t[2] - t[1])
+    if all( abs.(diff(diff(t))) .< 1e-8*one(eltype(t)))
+        println("here")
+
+        # minimize machine error
+        dt = (last(t)-first(t))/(length(x)-1)
+        return EvenlySampledTimeseries{eltype(x), eltype(t)}(x, first(t), dt)
     else
         error("not evenly spaced")
     end
@@ -129,8 +133,9 @@ end
 function centered_ifft(beta::FourierTransform, t::AbstractVector)
     # assume that time axis needs shifting for beta from the FFT.
     tshift = t .- first(t)
-    y = ifft(ifftshift(OffsetArrays.no_offset_view(beta.xhat)))
-    println("largest complex component is ", maximum(abs.(real.(im.*y))))
+    y = ifft(ifftshift(OffsetArrays.no_offset_view(beta.coeff)))
+    # println("largest complex component is ", maximum(abs.(real.(im.*y))))
+    println("largest complex component is ", maximum(abs.(imag.(y))))
     return EvenlySampledTimeseries(real.(y), t)
 end
 
@@ -157,11 +162,11 @@ end
 Base.length(x::FourierTransform) = 1
 
 function EvenlySampledTimeseries(beta::FourierTransform, t::AbstractVector)
-    N = length(beta.f) # number of observations
+    N = length(beta.freq) # number of observations
     y = zeros(Float64, N)
     for  i in eachindex(t) 
-        for j in eachindex(beta.xhat)
-            y[i] += real.(beta.xhat[j] * exp(2π*im*beta.f[j]*t[i]))
+        for j in eachindex(beta.coeff)
+            y[i] += real.(beta.coeff[j] * exp(2π*im*beta.freq[j]*t[i]))
         end
     end
     return EvenlySampledTimeseries(y./N, t)
@@ -201,8 +206,8 @@ function convolve(w::EvenlySampledTimeseries,y::EvenlySampledTimeseries)
 end
 
 function Base.:(/)(h::FourierTransform, x::FourierTransform)
-    (h.f != x.f) && error("frequencies do not match")
-    return FourierTransform(h.xhat ./ x.xhat, h.f)
+    (h.freq != x.freq) && error("frequencies do not match")
+    return FourierTransform(h.coeff ./ x.coeff, h.freq)
 end
 
 function periodogram(y::EvenlySampledTimeseries)
@@ -211,7 +216,7 @@ function periodogram(y::EvenlySampledTimeseries)
     #     # compute spectrum
     #     ispositive = x -> x > 0
     #     ff = findall(ispositive, ŷ.f)
-    #     Y = ŷ.xhat[ff]
+    #     Y = ŷ.coeff[ff]
     #     freq_i = ŷ.f[ff]
     #     T = SpectraFromScratch.record_length(y)
     # N = length(y.x)
@@ -224,17 +229,17 @@ function periodogram(ŷ::FourierTransform)
     # ispositive = x -> x > zero(x)
     # ff = findall(ispositive, ŷ.f)
     # freq_i = ŷ.f[ff]
-    T = 1 / ŷ.f[1] #SpectraFromScratch.record_length(y)
-    N = length(ŷ.xhat) #length(y.x)
-    psi = zeros(eltype(abs(first(ŷ.xhat))^2), maximum(abs.(eachindex(ŷ.xhat))))
-    f = zeros(eltype(first(ŷ.f)), maximum(abs.(eachindex(ŷ.xhat))))
-    for m in eachindex(ŷ.xhat)
+    T = 1 / ŷ.freq[1] #SpectraFromScratch.record_length(y)
+    N = length(ŷ.coeff) #length(y.x)
+    psi = zeros(eltype(abs(first(ŷ.coeff))^2), maximum(abs.(eachindex(ŷ.coeff))))
+    f = zeros(eltype(first(ŷ.freq)), maximum(abs.(eachindex(ŷ.coeff))))
+    for m in eachindex(ŷ.coeff)
         if m < 0
-            psi[-m] += abs(ŷ.xhat[m])^2
-            f[-m] = abs(ŷ.f[m])
+            psi[-m] += abs(ŷ.coeff[m])^2
+            f[-m] = abs(ŷ.freq[m])
         elseif m > 0
-            psi[m] += abs(ŷ.xhat[m])^2
-            f[m] = ŷ.f[m] # overwrite just to be sure
+            psi[m] += abs(ŷ.coeff[m])^2
+            f[m] = ŷ.freq[m] # overwrite just to be sure
         end
     end
     return FrequencySpectrum((T/N^2)*psi, f)     
@@ -299,7 +304,7 @@ end
 
 function band_average(psi::FrequencySpectrum, num; dim=missing)
     yy_avg = band_average(psi.psi, num, dim=dim)
-    f_avg = band_average(psi.f, num, dim=dim)
+    f_avg = band_average(psi.freq, num, dim=dim)
     return FrequencySpectrum(yy_avg, f_avg)
 end
 
@@ -338,17 +343,17 @@ function total_spectral_energy(Ψ,f)
     return e = sum(Ψ)*Δf
 end
 function total_spectral_energy(Ψ::FrequencySpectrum)
-    f = Ψ.f
+    f = Ψ.freq
     psi = Ψ.psi
     return total_spectral_energy(psi, f)
 end
 function total_spectral_energy(x::FourierTransform)
-    N = length(x.xhat)
-    e = zero(eltype((abs(first(x.xhat))^2)))
-    for m in eachindex(x.xhat)
+    N = length(x.coeff)
+    e = zero(eltype((abs(first(x.coeff))^2)))
+    for m in eachindex(x.coeff)
         # do not include energy in mean
         if m ≠ 0
-            e += abs(x.xhat[m])^2
+            e += abs(x.coeff[m])^2
         end
     end
     return e/N^2
