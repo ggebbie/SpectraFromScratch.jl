@@ -63,8 +63,8 @@ end
 
 function RegularTimeseries(x::AbstractVector, t::AbstractVector)
     length(x) != length(t) && error("lengths do not match")
-    # if all( abs.(diff(diff(t))) .< 1e-8*one(eltype(t)))
-    if all( isapprox.(diff(diff(t)), zero(eltype(t))))
+    if all( abs.(diff(diff(t))) .< 1e-12*one(eltype(t)))
+    # if all( isapprox.(diff(diff(t)), zero(eltype(t))))
 
         # minimize machine error
         dt = (last(t)-first(t))/(length(t)-1)
@@ -268,17 +268,19 @@ end
 
 function convolve(w::RegularTimeseries,y::RegularTimeseries)
     # require time sampling to be equal
-    (first(diff(w.time)) != first(diff(y.time))) &&
-    error("time sampling required to be consistent")
+    # (first(diff(w.time)) != first(diff(y.time))) &&
+    w.dt != y.dt && error("time sampling required to be consistent")
 
     # w required to have a zero time for reference
-    i0 = findfirst(iszero, w.time)
+    # i0 = findfirst(iszero, w.time)
             
-    if isempty(i0)
-        # if no zero, could add code to extrapolate off end of time grid
-        error("time grid not consistent")
-    end
-            
+    # # if isempty(i0)
+    # if minimum(eachindex(w.x)) > 0 || maximum(eachindex(w.x)) < 0
+    #     # if no zero, could add code to extrapolate off end of time grid
+    #     error("time grid not consistent")
+    # end
+
+    i0 = 0 # by construction with OffsetArrays
     h = zero(y.x) # output
     nmin = minimum(eachindex(y.x))
     nmax = maximum(eachindex(y.x))
@@ -296,7 +298,8 @@ function convolve(w::RegularTimeseries,y::RegularTimeseries)
 	    end
 	end
     end
-    return RegularTimeseries(h, y.time)
+    # return RegularTimeseries(h, y.time)
+    return RegularTimeseries(h, y.dt)
 end
 
 function Base.:(/)(h::FourierTransform, x::FourierTransform)

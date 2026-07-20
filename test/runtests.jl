@@ -76,11 +76,9 @@ using OffsetArrays
         @test isapprox(total_spectral_energy(Ψraw), sum(y.x.^2)/length(y.x))
         @test isapprox(total_spectral_energy(Ψraw), total_spectral_energy(ŷq))
 
-
         σ2target = 10.0
         psi = spectral_power_law(Ψraw.freq, -2.0, σ2target)
         @test isapprox(total_spectral_energy(psi), σ2target)
-
 
         ## power law with a break
         fbreak = 1/(100)
@@ -147,27 +145,30 @@ using OffsetArrays
             return RegularTimeseries(w, τ)
             # return OffsetArray(w, -Mmax:Mmax)
         end
-        
-        τ = range(-10,10,step=1)
+
+        Δτ = 0.1
+        τ = range(-8,10,step=Δτ)
         Trectangle = 0
+        # a delta function (?)
         M = length(rectangle(Trectangle,τ))
         Mmax = convert(Int,(M-1)/2) 
         w = rectangle(Trectangle,τ)
         N_convolve = 51
-        t_convolve = 1:N_convolve
+        t_convolve = range(start=1,step=Δτ,length=N_convolve)
         x = RegularTimeseries( randn(N_convolve), t_convolve)
         h = SpectraFromScratch.convolve(w,x)
         @test h.x == x.x
-        @test h.t == x.t
+        @test h.time == x.time
 
         # test the convolution theorem
-        @time ĥ  = centered_fft(h)
-        @time x̂  = centered_fft(x)
-        @time ŵ  = centered_fft(w)
+        @time ĥ  = FourierTransform(h)
+        @time x̂  = FourierTransform(x)
+        @time ŵ  = FourierTransform(w)
         
-        ŵ_residual = ĥ / x̂
+        ŵ_residual = FourierTransform( ĥ.coeff ./ x̂.coeff, x̂.df)
        # ŵ_residual = FourierTransform(ĥ.coeff ./ x̂.coeff, ĥ.freq)
 
+        # delta function at zero frequency (?)
         @test maximum(abs.(ŵ_residual.coeff)) < 1.1
         @test minimum(abs.(ŵ_residual.coeff)) > 0.9
 
@@ -175,9 +176,9 @@ using OffsetArrays
         @test minimum(abs.(ŵ.coeff)) > 0.9
 
         N_padded = convert(Int, floor(N_convolve/2))
-        τ_padded = range(-N_padded, N_padded, step=1)
+        τ_padded = range(-N_padded, N_padded, step=Δτ)
         w_padded = rectangle(Trectangle,τ_padded)
-        @time ŵ_padded  = centered_fft(w_padded)
+        @time ŵ_padded  = FourierTransform(w_padded)
 
         @test maximum(abs.(ŵ_padded.coeff)) < 1.1
         @test minimum(abs.(ŵ_padded.coeff)) > 0.9
