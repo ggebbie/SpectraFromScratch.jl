@@ -3,13 +3,14 @@ using SpectraFromScratch
 using Distributions
 using Test
 using Statistics
+using OffsetArrays
 
 @testset "SpectraFromScratch.jl" begin
     
-    N  = 2000 # underscore just for visual appearance
-    Δt = 1      # could make \Delta in Julia REPL but not in notebook
-    t  = Δt:Δt:N*Δt
-    f  = 20/((N-1)*Δt)
+    N  = 2_000 # underscore just for visual appearance
+    Δt = 1     
+    t  = (0:N-1)*Δt # start at t = 0
+    f  = 20/((N-1)*Δt) # just one frequency is active
 
     # A sinusoid plus noise
     noise_val = 0.2 # desired noise std deviation
@@ -17,28 +18,29 @@ using Statistics
 
     @testset "FourierTransform struct" begin
         
-        yy = yb # just renaming yb to mimic matlab code
+        yy = yb .- mean(yb) # remove the mean 
         N = length(yy)
         T = N * Δt
-        yy .-= mean(yy) # remove the mean
-
         y = RegularTimeseries(yy, t)
-        @time ŷ_orig = centered_fft(y)
-        @time ŷ = FourierTransform(y)
+        @time ŷ1 = FourierTransform(y, alg=:manual) # nearly the same
+        @time ŷ2 = FourierTransform(y, alg=:centered_fft) # nearly the same
+        @time ŷ = FourierTransform(y) # nearly the same
 
+        # check results
+        @test isapprox(ŷ.coeff[begin], ŷ2.coeff[begin])
+        
         # Inverse Fourier Transform
-        @time ỹ = RegularTimeseries(ŷ, y.t)
+        @time ỹ1 = RegularTimeseries(ŷ; alg=:manual)
+        @time ỹ2 = RegularTimeseries(ŷ; alg=:centered_ifft)
+        @time ỹ = RegularTimeseries(ŷ)
+
+        # check results
+        @test isapprox(ỹ.x[begin], ỹ2.x[begin])
+        @test isapprox(ỹ1.x[begin], ỹ2.x[begin])
+
+        # does inverse undo the transform?
         @test isapprox(y.x, ỹ.x)
-        @test isapprox(y.t, ỹ.t)
-
-        # needs time correction, fft assumes t=0 at first obs
-        @time ỹ_orig = RegularTimeseries(ŷ_orig, y.t.-first(y.t))
-        @test isapprox(y.x, ỹ_orig.x) # now passes
-        @test isapprox(y.t, ỹ_orig.t .+ first(y.t)) 
-
-        @time ỹ_orig2 = centered_ifft(ŷ_orig, y.t)
-        @test isapprox(y.x, ỹ_orig2.x) # now passes
-        @test isapprox(y.t, ỹ_orig2.t) 
+        @test isapprox(y.time, ỹ.time)
    end
 
     @testset "bin averaging" begin
