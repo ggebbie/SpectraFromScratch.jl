@@ -3,13 +3,14 @@ using SpectraFromScratch
 using Distributions
 using Test
 using Statistics
+using OffsetArrays
 
 @testset "SpectraFromScratch.jl" begin
     
-    N  = 2000 # underscore just for visual appearance
-    Δt = 1      # could make \Delta in Julia REPL but not in notebook
-    t  = Δt:Δt:N*Δt
-    f  = 20/((N-1)*Δt)
+    N  = 2_000 # underscore just for visual appearance
+    Δt = 1     
+    t  = (0:N-1)*Δt # start at t = 0
+    f  = 20/((N-1)*Δt) # just one frequency is active
 
     # A sinusoid plus noise
     noise_val = 0.2 # desired noise std deviation
@@ -17,28 +18,29 @@ using Statistics
 
     @testset "FourierTransform struct" begin
         
-        yy = yb # just renaming yb to mimic matlab code
+        yy = yb .- mean(yb) # remove the mean 
         N = length(yy)
         T = N * Δt
-        yy .-= mean(yy) # remove the mean
-
         y = RegularTimeseries(yy, t)
-        @time ŷ_orig = centered_fft(y)
-        @time ŷ = FourierTransform(y)
+        @time ŷ1 = FourierTransform(y, alg=:manual) # nearly the same
+        @time ŷ2 = FourierTransform(y, alg=:centered_fft) # nearly the same
+        @time ŷ = FourierTransform(y) # nearly the same
 
+        # check results
+        @test isapprox(ŷ.coeff[begin], ŷ2.coeff[begin])
+        
         # Inverse Fourier Transform
-        @time ỹ = RegularTimeseries(ŷ, y.t)
+        @time ỹ1 = RegularTimeseries(ŷ; alg=:manual)
+        @time ỹ2 = RegularTimeseries(ŷ; alg=:centered_ifft)
+        @time ỹ = RegularTimeseries(ŷ)
+
+        # check results
+        @test isapprox(ỹ.x[begin], ỹ2.x[begin])
+        @test isapprox(ỹ1.x[begin], ỹ2.x[begin])
+
+        # does inverse undo the transform?
         @test isapprox(y.x, ỹ.x)
-        @test isapprox(y.t, ỹ.t)
-
-        # needs time correction, fft assumes t=0 at first obs
-        @time ỹ_orig = RegularTimeseries(ŷ_orig, y.t.-first(y.t))
-        @test isapprox(y.x, ỹ_orig.x) # now passes
-        @test isapprox(y.t, ỹ_orig.t .+ first(y.t)) 
-
-        @time ỹ_orig2 = centered_ifft(ŷ_orig, y.t)
-        @test isapprox(y.x, ỹ_orig2.x) # now passes
-        @test isapprox(y.t, ỹ_orig2.t) 
+        @test isapprox(y.time, ỹ.time)
    end
 
     @testset "bin averaging" begin
@@ -74,11 +76,9 @@ using Statistics
         @test isapprox(total_spectral_energy(Ψraw), sum(y.x.^2)/length(y.x))
         @test isapprox(total_spectral_energy(Ψraw), total_spectral_energy(ŷq))
 
-
         σ2target = 10.0
         psi = spectral_power_law(Ψraw.freq, -2.0, σ2target)
         @test isapprox(total_spectral_energy(psi), σ2target)
-
 
         ## power law with a break
         fbreak = 1/(100)
@@ -145,27 +145,30 @@ using Statistics
             return RegularTimeseries(w, τ)
             # return OffsetArray(w, -Mmax:Mmax)
         end
-        
-        τ = range(-10,10,step=1)
+
+        Δτ = 0.1
+        τ = range(-8,10,step=Δτ)
         Trectangle = 0
+        # a delta function (?)
         M = length(rectangle(Trectangle,τ))
         Mmax = convert(Int,(M-1)/2) 
         w = rectangle(Trectangle,τ)
         N_convolve = 51
-        t_convolve = 1:N_convolve
+        t_convolve = range(start=1,step=Δτ,length=N_convolve)
         x = RegularTimeseries( randn(N_convolve), t_convolve)
         h = SpectraFromScratch.convolve(w,x)
         @test h.x == x.x
-        @test h.t == x.t
+        @test h.time == x.time
 
         # test the convolution theorem
-        @time ĥ  = centered_fft(h)
-        @time x̂  = centered_fft(x)
-        @time ŵ  = centered_fft(w)
+        @time ĥ  = FourierTransform(h)
+        @time x̂  = FourierTransform(x)
+        @time ŵ  = FourierTransform(w)
         
-        ŵ_residual = ĥ / x̂
+        ŵ_residual = FourierTransform( ĥ.coeff ./ x̂.coeff, x̂.df)
        # ŵ_residual = FourierTransform(ĥ.coeff ./ x̂.coeff, ĥ.freq)
 
+        # delta function at zero frequency (?)
         @test maximum(abs.(ŵ_residual.coeff)) < 1.1
         @test minimum(abs.(ŵ_residual.coeff)) > 0.9
 
@@ -173,9 +176,9 @@ using Statistics
         @test minimum(abs.(ŵ.coeff)) > 0.9
 
         N_padded = convert(Int, floor(N_convolve/2))
-        τ_padded = range(-N_padded, N_padded, step=1)
+        τ_padded = range(-N_padded, N_padded, step=Δτ)
         w_padded = rectangle(Trectangle,τ_padded)
-        @time ŵ_padded  = centered_fft(w_padded)
+        @time ŵ_padded  = FourierTransform(w_padded)
 
         @test maximum(abs.(ŵ_padded.coeff)) < 1.1
         @test minimum(abs.(ŵ_padded.coeff)) > 0.9
