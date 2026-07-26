@@ -41,7 +41,10 @@ using OffsetArrays
         # does inverse undo the transform?
         @test isapprox(y.x, ỹ.x)
         @test isapprox(y.time, ỹ.time)
-   end
+
+        # expand at a time point
+        @test isapprox(expand(0.0, ŷ), ỹ.x[0])
+    end 
 
     @testset "bin averaging" begin
         navg = 20

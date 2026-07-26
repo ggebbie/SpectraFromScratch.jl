@@ -15,6 +15,7 @@ export spectral_power_law, spectral_basis
 #, observationalmatrix
 export convolve
 export periodogram
+export expand
 
 import Base: /
 
@@ -245,6 +246,23 @@ end
 
 Base.length(x::FourierTransform) = 1
 
+"""
+    expand(t, beta::FourierTransform)
+
+t is the time elapsed from record start, t=0
+"""
+function expand(t, beta::FourierTransform{C, T}) where {C, T}
+    N = length(beta.coeff) # number of observations
+    y = zero(C)
+    for j in eachindex(beta.coeff)
+        # assume time starts at zero
+        y += real.(beta.coeff[j] * exp(2π*im*beta.df*j*t))
+    end
+
+    # a kludge, how to fix this?
+    isapprox( zero(T), imag(y), atol=1e-10) ? (return real(y)/N) : error("imaginary part too big")
+end
+
 # function RegularTimeseries(beta::FourierTransform, t::AbstractVector)
 function RegularTimeseries_manual(beta::FourierTransform)
     N = length(beta.coeff) # number of observations
@@ -256,14 +274,10 @@ function RegularTimeseries_manual(beta::FourierTransform)
     
     # assume ok to start at index 0
     for  i in eachindex(y)
-        for j in eachindex(beta.coeff)
-            # assume time starts at zero
-            # y[i] += real.(beta.coeff[j] * exp(2π*im*beta.freq[j]*dt*(i-1)))
-            y[i] += real.(beta.coeff[j] * exp(2π*im*beta.df*j*dt*i))
-        end
+        y[i] = expand(dt*i, beta)
     end
     # again assume that indices start at zero
-    return RegularTimeseries( y ./N, dt)
+    return RegularTimeseries( y, dt)
 end
 
 function convolve(w::RegularTimeseries,y::RegularTimeseries)
