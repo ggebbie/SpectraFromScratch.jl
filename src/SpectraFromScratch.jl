@@ -15,6 +15,7 @@ export spectral_power_law, spectral_basis
 #, observationalmatrix
 export convolve
 export periodogram
+export expand
 
 import Base: /
 
@@ -244,6 +245,23 @@ function RegularTimeseries(y; alg=:centered_ifft)
 end
 
 Base.length(x::FourierTransform) = 1
+
+"""
+    expand(t, beta::FourierTransform)
+
+t is the time elapsed from record start, t=0
+"""
+function expand(t, beta::FourierTransform{C, T}) where {C, T}
+    N = length(beta.coeff) # number of observations
+    y = zero(C)
+    for j in eachindex(beta.coeff)
+        # assume time starts at zero
+        y += real.(beta.coeff[j] * exp(2π*im*beta.df*j*t))
+    end
+
+    # a kludge, how to fix this?
+    isapprox( zero(T), imag(y), atol=1e-10) ? (return real(y)/N) : error("imaginary part too big")
+end
 
 # function RegularTimeseries(beta::FourierTransform, t::AbstractVector)
 function RegularTimeseries_manual(beta::FourierTransform)
