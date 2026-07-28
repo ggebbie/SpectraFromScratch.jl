@@ -44,6 +44,10 @@ using OffsetArrays
 
         # expand at a time point
         @test isapprox(expand(0.0, ŷ), ỹ.x[0])
+
+        # does time average converge?
+        @test abs(time_average(2.9,3.1,ŷ) - expand(3, ŷ)) >
+              abs(time_average(2.99,3.01,ŷ) - expand(3, ŷ))  
     end 
 
     @testset "bin averaging" begin
