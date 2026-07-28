@@ -9,6 +9,7 @@ export FourierTransform
 export RegularTimeseries
 export centered_fft
 export centered_ifft
+export time_average
 export band_average
 export confid, total_spectral_energy
 export spectral_power_law, spectral_basis
@@ -260,7 +261,7 @@ function expand(t, beta::FourierTransform{C, T}) where {C, T}
         y += expand(t, n, beta)
         # y += real.(beta.coeff[j] * exp(2π*im*beta.df*j*t))
     end
-    println("note: imaginary =", imag(y))
+    abs(imag(y)) > 1e-10 && println("note: imaginary =", imag(y))
     return real(y) 
 end
 
