@@ -253,15 +253,19 @@ t is the time elapsed from record start, t=0
 """
 function expand(t, beta::FourierTransform{C, T}) where {C, T}
     N = length(beta.coeff) # number of observations
+    # y = 0 * real(first(beta.coeff))
     y = zero(C)
-    for j in eachindex(beta.coeff)
+    for n in eachindex(beta.coeff)
         # assume time starts at zero
-        y += real.(beta.coeff[j] * exp(2π*im*beta.df*j*t))
+        y += expand(t, n, beta)
+        # y += real.(beta.coeff[j] * exp(2π*im*beta.df*j*t))
     end
-
-    # a kludge, how to fix this?
-    isapprox( zero(T), imag(y), atol=1e-10) ? (return real(y)/N) : error("imaginary part too big")
+    println("note: imaginary =", imag(y))
+    return real(y) 
 end
+
+expand(t::Number, n::Number, beta::FourierTransform) =
+    beta.coeff[n] * exp(2π*im*beta.df*n*t) / length(beta.coeff)
 
 # function RegularTimeseries(beta::FourierTransform, t::AbstractVector)
 function RegularTimeseries_manual(beta::FourierTransform)
@@ -550,6 +554,40 @@ function spectral_basis(t,f,includemean=false)
         return hcat(Acos,Asin)
     end
     
+end
+
+function time_average(tstart::Number, tend::Number, x::FourierTransform)
+    (tend ≤ tstart) && error("times out of order") 
+    # summation of frequencies
+    b = zero(eltype(real(first(x.coeff)))) # allocate a complex number
+    N = length(x.coeff)
+    # iterate over frequencies
+    # why first? the first dimension is Frequency
+    for m in eachindex(x.coeff)
+        # # println(m)
+        # if m ≠ 0
+        #     b += integrate(tstart, tend, x, m)
+        # end
+        b += time_average(tstart, tend, x, m) 
+    end
+    return b
+    # return real.(( b /(tend - tstart) + x.coeff[0])/ N)
+end
+
+time_average(tstart, tend, x::FourierTransform, m::Number) = ( m ≠ 0) ?
+    (real(integrate(tstart, tend, x, m)) / (length(x.coeff) * (tend - tstart))) :
+     (real(x.coeff[0])/length(x.coeff))
+                                                             
+
+function integrate(tstart, tend, x::FourierTransform, m::Number)
+    # N = length(x.coeff)
+    # A = x.coeff[m] / (2π * im * x.freq[m]) # amplitude of wave 
+    A = x.coeff[m] / (2π * im * m * x.df ) # amplitude of wave 
+    # limit1 = exp(2π*im*x.freq[m]*tstart)
+    # limit2 = exp(2π*im*x.freq[m]*tend)
+    limit1 = exp(2π*im*m*x.df*tstart)
+    limit2 = exp(2π*im*m*x.df*tend)
+    return   A * (limit2 - limit1)
 end
 
 end
