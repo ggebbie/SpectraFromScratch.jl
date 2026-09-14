@@ -17,6 +17,7 @@ export spectral_power_law, spectral_basis
 export convolve
 export periodogram
 export expand
+export phase
 
 import Base: /
 
@@ -570,5 +571,42 @@ function integrate(tstart, tend, x::FourierTransform, m::Number)
     limit2 = exp(2π*im*m*x.df*tend)
     return   A * (limit2 - limit1)
 end
+
+function phase(x::FourierTransform)
+    ind = first(axes(x.coeff))
+    phi = OffsetArray(zeros(length(ind)), ind)
+    for n in x.coeff
+        phi[n] = atan(imag(x.coeff[n])/real(x.coeff[n]))        
+    end
+end
+
+# function RegularTimeseries(Ψ::FrequencySpectrum)
+#     ## get timeseries that goes with frequency spectrum
+
+#     # get phase of positive frequencies
+#     ϕ = vcat(2π *rand(nf-1) .- π, 0.0) # Nyquist must be zero phase
+
+#     # get positive real and imaginary coefficients
+#     rcoeff = zeros(nf)
+#     icoeff = zeros(nf)
+#     for n in 1:nf
+#         rcoeff[n] = √(Ψ.psi[n]/(1 + tan(ϕ[n])^2))
+#         icoeff[n] = tan(ϕ[n]) * rcoeff[n]
+#     end
+    
+#     # turn frequency spectrum into Fourier Transform
+#     ft = OffsetArray(zeros(N),-nf:nf-1)
+
+#     for n = -nf:nf-1 # assuming even number
+#         if n < 0
+
+#         elseif iszero(n)
+
+#         elseif n > 0
+            
+#             ft[n]
+#         end
+#     end
+# end
 
 end
