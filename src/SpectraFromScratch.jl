@@ -67,25 +67,15 @@ end
 function RegularTimeseries(x::AbstractVector, t::AbstractVector)
     length(x) != length(t) && error("lengths do not match")
     if all( abs.(diff(diff(t))) .< 1e-12*one(eltype(t)))
-    # if all( isapprox.(diff(diff(t)), zero(eltype(t))))
 
         # minimize machine error
         dt = (last(t)-first(t))/(length(t)-1)
 
         # times an integer multiple of sampling time?
         ind0 = t./dt
-        # if all(isinteger.(ind0))
-        #     ind = Integer.(ind0)
-            offset = Integer(first(t)./dt)-1
-        # else
-        #     # revert to starting indices at 0
-        #     error("SpectraFromScratch: time not an integer multiple")
-        #     # ind = range(start=0, step=1, length=length(x))
-        # end
-        # println("ind", ind)
-        
+        offset = Integer(first(t)./dt)-1
+
         # force all timeseries to be OffsetArrays in symmetry with `FourierTransform`
-        # x_offset = OffsetArray(x, ind)
         x_offset = OffsetArray(x, offset)
         return RegularTimeseries{eltype(x), eltype(t)}(x_offset, dt)
     else
@@ -215,9 +205,9 @@ function FourierTransform_manual(y::RegularTimeseries)
 end
 
 # default version: fast FFT
-FourierTransform(y::RegularTimeseries) = FourierTransform(y; alg=:centered_fft)
+# FourierTransform(y::RegularTimeseries) = FourierTransform(y; alg=:centered_fft)
 
-function FourierTransform(y; alg=:centered_fft)
+function FourierTransform(y::RegularTimeseries; alg=:centered_fft)
     if alg==:centered_fft
         return centered_fft(y)
     elseif alg==:manual
@@ -575,38 +565,56 @@ end
 function phase(x::FourierTransform)
     ind = first(axes(x.coeff))
     phi = OffsetArray(zeros(length(ind)), ind)
-    for n in x.coeff
+    for n in eachindex(x.coeff)
         phi[n] = atan(imag(x.coeff[n])/real(x.coeff[n]))        
     end
+    return phi
 end
 
-# function RegularTimeseries(Ψ::FrequencySpectrum)
-#     ## get timeseries that goes with frequency spectrum
-
-#     # get phase of positive frequencies
-#     ϕ = vcat(2π *rand(nf-1) .- π, 0.0) # Nyquist must be zero phase
-
-#     # get positive real and imaginary coefficients
-#     rcoeff = zeros(nf)
-#     icoeff = zeros(nf)
-#     for n in 1:nf
-#         rcoeff[n] = √(Ψ.psi[n]/(1 + tan(ϕ[n])^2))
-#         icoeff[n] = tan(ϕ[n]) * rcoeff[n]
-#     end
+function FourierTransform(Ψ::FrequencySpectrum)
+    ## get timeseries that goes with frequency spectrum
+    # NOTE: This function is not deterministic.
+    # It is one timeseries realization of the spectrum, but there are others.
     
-#     # turn frequency spectrum into Fourier Transform
-#     ft = OffsetArray(zeros(N),-nf:nf-1)
+    # get phase of positive frequencies
+    # nf = -first(axes(Ψ.psi))
+    nf = maximum(eachindex(Ψ.psi))
+    ϕ = vcat(2π *rand(nf-1) .- π, 0.0) # Nyquist must be zero phase
+    N = 2nf
+    df = first(Ψ.freq)
+    T = 1/df
+    
+    # get positive real and imaginary coefficients
+    rcoeff = zeros(nf)
+    icoeff = zeros(nf)
+    for n in 1:nf
 
-#     for n = -nf:nf-1 # assuming even number
-#         if n < 0
+        if n == nf
+            # rcoeff[n] = √(Ψ.psi[n]/(1 + tan(ϕ[n])^2))
+            rcoeff[n] = √( (N^2*Ψ.psi[n]/T) / (1 + tan(ϕ[n])^2))
+        else
+            rcoeff[n] = √( (N^2*Ψ.psi[n]/(2T)) / (1 + tan(ϕ[n])^2))
+        end
+        icoeff[n] = tan(ϕ[n]) * rcoeff[n]
+    end
+    
+    # turn frequency spectrum into Fourier Transform
+    xhat = OffsetArray(zeros(ComplexF64,N),-nf:nf-1)
 
-#         elseif iszero(n)
+    for n = -nf:nf-1 # assuming even number
+        if n < 0
+            # xhat[n] = (N/2)*(rcoeff[-n] - im*icoeff[-n])
+            xhat[n] = (rcoeff[-n] - im*icoeff[-n])
+        elseif iszero(n)
+            xhat[n] = 0.0
+        elseif n > 0
+            # xhat[n] = (N/2)*(rcoeff[n] + im*icoeff[n])
+            xhat[n] = (rcoeff[n] + im*icoeff[n])
+        end
+    end
+    return FourierTransform(xhat, df)
+end
 
-#         elseif n > 0
-            
-#             ft[n]
-#         end
-#     end
-# end
-
+RegularTimeseries(Ψ::FrequencySpectrum) = RegularTimeseries(FourierTransform(Ψ))
+    
 end

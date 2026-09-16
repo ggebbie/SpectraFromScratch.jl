@@ -48,6 +48,18 @@ using OffsetArrays
         # does time average converge?
         @test abs(time_average(2.9,3.1,ŷ) - expand(3, ŷ)) >
               abs(time_average(2.99,3.01,ŷ) - expand(3, ŷ))  
+
+        @testset "phase" begin
+            phi = phase(ŷ)
+            @test all(-π .< phi .< π )
+
+            # Nyquist coefficient should be real
+            @test isapprox(first(phi), 0.0, atol= 1.0e-10)
+
+            # time-mean coefficient should be real
+            @test isapprox(phi[0], 0.0, atol= 1.0e-10)
+        end
+        
     end 
 
     @testset "bin averaging" begin
@@ -60,12 +72,15 @@ using OffsetArrays
         #plot(t_avg,y_avg,leg = false)
         #title!("Bin averaged version of the timeseries above")
         #xlabel!("Time")
-
     end
 
     @testset "spectrum" begin
 
-        # OK, now let's try doing a spectrum. First, though, let's recall what we are wanting to do overall. We want to make a function to estimate the band-averaged spectrum and plot it with a 95% confidence interval. To do that, we will follow the steps from Section 4.7.1 of the class notes on spectral analysis
+        # OK, now let's try doing a spectrum.
+        # First, though, let's recall what we are wanting to do overall.
+        # We want to make a function to estimate the band-averaged spectrum and plot it with a 95% confidence interval.
+        # To do that, we will follow the steps from Section 4.7.1 of the Dynamical Insights From Data on spectral analysis
+        
         yy = yb # just renaming yb to mimic matlab code
         N = length(yy)
         T = N * Δt
@@ -136,8 +151,18 @@ using OffsetArrays
             println("upper confidence limit: ", upper)
 
         end
-    
+
+        @testset "realizations of the frequency spectrum" begin
+            Ψ = Ψraw
+            timeseries = RegularTimeseries(Ψ)
+
+            # if inverted, do you recover same answer?
+            Ψ̃ = periodogram(timeseries)
+
+            @test all(isapprox.(Ψ.psi,Ψ̃.psi))
+        end
     end
+    
     @testset "convolution" begin
         function rectangle(T,τ) 
             M = length(τ) # length(rectangle(Trectangle,τ))
