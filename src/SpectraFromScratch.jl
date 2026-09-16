@@ -17,6 +17,7 @@ export spectral_power_law, spectral_basis
 export convolve
 export periodogram
 export expand
+export phase
 
 import Base: /
 
@@ -66,25 +67,15 @@ end
 function RegularTimeseries(x::AbstractVector, t::AbstractVector)
     length(x) != length(t) && error("lengths do not match")
     if all( abs.(diff(diff(t))) .< 1e-12*one(eltype(t)))
-    # if all( isapprox.(diff(diff(t)), zero(eltype(t))))
 
         # minimize machine error
         dt = (last(t)-first(t))/(length(t)-1)
 
         # times an integer multiple of sampling time?
         ind0 = t./dt
-        # if all(isinteger.(ind0))
-        #     ind = Integer.(ind0)
-            offset = Integer(first(t)./dt)-1
-        # else
-        #     # revert to starting indices at 0
-        #     error("SpectraFromScratch: time not an integer multiple")
-        #     # ind = range(start=0, step=1, length=length(x))
-        # end
-        # println("ind", ind)
-        
+        offset = Integer(first(t)./dt)-1
+
         # force all timeseries to be OffsetArrays in symmetry with `FourierTransform`
-        # x_offset = OffsetArray(x, ind)
         x_offset = OffsetArray(x, offset)
         return RegularTimeseries{eltype(x), eltype(t)}(x_offset, dt)
     else
@@ -173,15 +164,6 @@ function centered_fft(y::RegularTimeseries)
     return FourierTransform(OffsetArray(x̂, m), df)
 end
 
-# function centered_ifft(beta::FourierTransform, t::AbstractVector)
-#     # assume that time axis needs shifting for beta from the FFT.
-#     # tshift = t .- first(t)
-#     y = ifft(ifftshift(OffsetArrays.no_offset_view(beta.coeff)))
-#     # println("largest complex component is ", maximum(abs.(real.(im.*y))))
-#     println("largest complex component is ", maximum(abs.(imag.(y))))
-#     return RegularTimeseries(real.(y), t)
-# end
-
 function centered_ifft(beta::FourierTransform)
     y = ifft(ifftshift(OffsetArrays.no_offset_view(beta.coeff)))
     # println("largest complex component is ", maximum(abs.(real.(im.*y))))
@@ -223,9 +205,9 @@ function FourierTransform_manual(y::RegularTimeseries)
 end
 
 # default version: fast FFT
-FourierTransform(y::RegularTimeseries) = FourierTransform(y; alg=:centered_fft)
+# FourierTransform(y::RegularTimeseries) = FourierTransform(y; alg=:centered_fft)
 
-function FourierTransform(y; alg=:centered_fft)
+function FourierTransform(y::RegularTimeseries; alg=:centered_fft)
     if alg==:centered_fft
         return centered_fft(y)
     elseif alg==:manual
@@ -235,7 +217,7 @@ function FourierTransform(y; alg=:centered_fft)
     end
 end
 
-function RegularTimeseries(y; alg=:centered_ifft)
+function RegularTimeseries(y::FourierTransform; alg=:centered_ifft)
     if alg==:centered_ifft
         return centered_ifft(y)
     elseif alg==:manual
@@ -267,6 +249,28 @@ end
 
 expand(t::Number, n::Number, beta::FourierTransform) =
     beta.coeff[n] * exp(2π*im*beta.df*n*t) / length(beta.coeff)
+
+"""
+    derivative(t, beta::FourierTransform)
+
+t is the time elapsed from record start, t=0
+"""
+function derivative(t, beta::FourierTransform{C, T}) where {C, T}
+    N = length(beta.coeff) # number of observations
+    y = 0 * real(first(beta.coeff)*beta.df)
+    # y = zero(C)
+    for n in eachindex(beta.coeff)
+        # assume time starts at zero
+        y += derivative(t, n, beta)
+        # y += real.(beta.coeff[j] * exp(2π*im*beta.df*j*t))
+    end
+    # println(imag(y))
+    # abs(imag(y)) > 1e-10 && println("note: imaginary =", imag(y)) # 
+    return real(y) 
+end
+
+derivative(t::Number, n::Number, beta::FourierTransform) =
+    2π*im*n*beta.df*beta.coeff[n] * exp(2π*im*beta.df*n*t) / length(beta.coeff)
 
 # function RegularTimeseries(beta::FourierTransform, t::AbstractVector)
 function RegularTimeseries_manual(beta::FourierTransform)
@@ -326,26 +330,10 @@ function Base.:(/)(h::FourierTransform, x::FourierTransform)
     return FourierTransform(h.coeff ./ x.coeff, h.freq)
 end
 
-function periodogram(y::RegularTimeseries)
-        ŷ = FourierTransform(y)
-    return periodogram(ŷ)   
-    #     # compute spectrum
-    #     ispositive = x -> x > 0
-    #     ff = findall(ispositive, ŷ.f)
-    #     Y = ŷ.coeff[ff]
-    #     freq_i = ŷ.f[ff]
-    #     T = SpectraFromScratch.record_length(y)
-    # N = length(y.x)
-    # # check that "2" is appropriate for zero-frequency coefficient
-    # return FrequencySpectrum((2*T/N^2).*Y.*conj(Y), freq_i)
-end
+periodogram(y::RegularTimeseries) = periodogram(FourierTransform(y))   
 
 #  is this function updated?
 function periodogram(ŷ::FourierTransform)
-    # # compute spectrum
-    # ispositive = x -> x > zero(x)
-    # ff = findall(ispositive, ŷ.f)
-    # freq_i = ŷ.f[ff]
     T = 1 / ŷ.freq[1] #SpectraFromScratch.record_length(y)
     N = length(ŷ.coeff) #length(y.x)
     psi = zeros(eltype(abs(first(ŷ.coeff))^2), maximum(abs.(eachindex(ŷ.coeff))))
@@ -486,26 +474,9 @@ end
 # - `βhi`: power law coefficient, high frequencies
 # # Output
 # - `Φ`: spectral energy density
-# """
-# function spectral_power_law(f,βlo,e=1.0,βhi=0.0)
-#     nf = length(f)
-#     Ψ = f.^-βlo  
-
-#     if !iszero(βhi)
-#         scale = 0.01^(βlo - βhi)
-#         println("scale ",scale)
-#         Ψ .+= (1/scale)*f.^βhi
-#     end
-
-#     e₀ = 2sum(Ψ)/nf^2
-#     Ψ .*= e/e₀
-
-#     return Ψ
-# end
-
 # for units
 # type of `f` requires uniform vector
-#function spectral_power_law(f::StepRangeLen{<:Quantity{<:Number}},βlo,σ2=1.0,βhi=0.0)
+# """
 function spectral_power_law(f, βlo, σ2=1.0; βhi=nothing, fbreak=nothing)
     nf = length(f)
     fnondim = f ./ first(f)
@@ -591,4 +562,59 @@ function integrate(tstart, tend, x::FourierTransform, m::Number)
     return   A * (limit2 - limit1)
 end
 
+function phase(x::FourierTransform)
+    ind = first(axes(x.coeff))
+    phi = OffsetArray(zeros(length(ind)), ind)
+    for n in eachindex(x.coeff)
+        phi[n] = atan(imag(x.coeff[n])/real(x.coeff[n]))        
+    end
+    return phi
+end
+
+function FourierTransform(Ψ::FrequencySpectrum)
+    ## get timeseries that goes with frequency spectrum
+    # NOTE: This function is not deterministic.
+    # It is one timeseries realization of the spectrum, but there are others.
+    
+    # get phase of positive frequencies
+    # nf = -first(axes(Ψ.psi))
+    nf = maximum(eachindex(Ψ.psi))
+    ϕ = vcat(2π *rand(nf-1) .- π, 0.0) # Nyquist must be zero phase
+    N = 2nf
+    df = first(Ψ.freq)
+    T = 1/df
+    
+    # get positive real and imaginary coefficients
+    rcoeff = zeros(nf)
+    icoeff = zeros(nf)
+    for n in 1:nf
+
+        if n == nf
+            # rcoeff[n] = √(Ψ.psi[n]/(1 + tan(ϕ[n])^2))
+            rcoeff[n] = √( (N^2*Ψ.psi[n]/T) / (1 + tan(ϕ[n])^2))
+        else
+            rcoeff[n] = √( (N^2*Ψ.psi[n]/(2T)) / (1 + tan(ϕ[n])^2))
+        end
+        icoeff[n] = tan(ϕ[n]) * rcoeff[n]
+    end
+    
+    # turn frequency spectrum into Fourier Transform
+    xhat = OffsetArray(zeros(ComplexF64,N),-nf:nf-1)
+
+    for n = -nf:nf-1 # assuming even number
+        if n < 0
+            # xhat[n] = (N/2)*(rcoeff[-n] - im*icoeff[-n])
+            xhat[n] = (rcoeff[-n] - im*icoeff[-n])
+        elseif iszero(n)
+            xhat[n] = 0.0
+        elseif n > 0
+            # xhat[n] = (N/2)*(rcoeff[n] + im*icoeff[n])
+            xhat[n] = (rcoeff[n] + im*icoeff[n])
+        end
+    end
+    return FourierTransform(xhat, df)
+end
+
+RegularTimeseries(Ψ::FrequencySpectrum) = RegularTimeseries(FourierTransform(Ψ))
+    
 end
