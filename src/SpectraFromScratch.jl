@@ -13,7 +13,6 @@ export time_average
 export band_average
 export confid, total_spectral_energy
 export spectral_power_law, spectral_basis
-#, observationalmatrix
 export convolve
 export periodogram
 export expand
@@ -21,8 +20,19 @@ export phase
 
 import Base: /
 
+"""
+    FourierTransform{T}
+
+Store a Fourier transform in an efficient way such that
+- not all frequencies must be stored but they can be retrieved with `x.freq`
+- be sure that the mean and Nyquist frequencies have real coefficients `x.coeff`
+- use an `OffsetArray` so that all positive and negative modes can be directly accessed
+
+# Arguments
+- `coeff::OffsetArray`: complex coefficients
+- `df<: Number`: fundamental frequency
+"""
 struct FourierTransform{T<:Number, R<:Number}
-    # coeff::AbstractVector{T}
     coeff::OffsetVector{T}
     df::R
 end
@@ -33,15 +43,25 @@ Base.propertynames(x::FourierTransform, private::Bool=false) =
 function Base.getproperty(x::FourierTransform, d::Symbol)
     if d === :freq
         # reconstruct fourier frequencies
-        # should this be an OffsetArray?
         ind = first(axes(x.coeff))
         return OffsetArray(x.df*ind, ind)
-        #range(start=x.dt*0, step=x.dt, length=length(x.x))
     else
         return getfield(x, d)
     end
 end
 
+"""
+    RegularTimeseries{T<:Number, R <:Number}
+
+Store a uniformly-sampled timeseries in an efficient way such that
+- not all times must be stored but they can be retrieved with `x.time`
+- be sure that the mean and Nyquist frequencies have real coefficients `x.x`
+- use an `OffsetArray` in symmetry with `FourierTransform`
+
+# Fields
+- `x::OffsetVector`: timeseries values
+- `dt<: Number`: temporal spacing (fixed)
+"""
 struct RegularTimeseries{T <: Number, R <: Number}
     x::OffsetVector{T}
     dt::R
@@ -64,6 +84,9 @@ function Base.getproperty(x::RegularTimeseries, d::Symbol)
     end
 end
 
+"""
+    function RegularTimeseries(x::AbstractVector, t::AbstractVector)
+"""
 function RegularTimeseries(x::AbstractVector, t::AbstractVector)
     length(x) != length(t) && error("lengths do not match")
     if all( abs.(diff(diff(t))) .< 1e-12*one(eltype(t)))
@@ -83,6 +106,19 @@ function RegularTimeseries(x::AbstractVector, t::AbstractVector)
     end
 end
 
+
+"""
+    RegularTimeseries{T<:Number, R <:Number}
+
+Store a uniformly-sampled timeseries in an efficient way such that
+- not all times must be stored but they can be retrieved with `x.time`
+- be sure that the mean and Nyquist frequencies have real coefficients `x.x`
+- use an `OffsetArray` in symmetry with `FourierTransform`
+
+# Fields
+- `x::OffsetVector`: timeseries values
+- `dt<: Number`: temporal spacing (fixed)
+"""
 struct FrequencySpectrum{T}
     psi::AbstractVector
     freq::AbstractVector
@@ -97,11 +133,17 @@ struct FrequencySpectrum{T}
 end
 
 fourier_modes(N::Number) = iseven(N) ?
-	                       (m = (-convert(Int,N/2):convert(Int,(N/2)-1))) :
-	                       (m = (-convert(Int,(N-1)/2):convert(Int,((N-1)/2))))
+	                   (m = (-convert(Int,N/2):convert(Int,(N/2)-1))) :
+	                   (m = (-convert(Int,(N-1)/2):convert(Int,((N-1)/2))))
 
+"""
+    fourier_modes(y::RegularTimeseries)
+"""
 fourier_modes(y::RegularTimeseries) = fourier_modes(length(y))
 
+"""
+    fourier_frequencies(m, T)
+"""
 fourier_frequencies(m, T) = OffsetArray(m/T, m)
 function fourier_frequencies(y::RegularTimeseries)
     m = fourier_modes(y)
@@ -110,47 +152,38 @@ function fourier_frequencies(y::RegularTimeseries)
     return fourier_frequencies(m, T)
 end
 
+"""
+    sampling_resolution(y::RegularTimeseries) 
+"""
 sampling_resolution(y::RegularTimeseries) = y.dt
 
+"""
+    record_length(y::RegularTimeseries) 
+"""
 record_length(y::RegularTimeseries) = length(y) * sampling_resolution(y)
 
-# function fourier_basis(y::RegularTimeseries{Tin}) where Tin
-#     m = fourier_modes(y)
-#     T = record_length(y)
-#     f = fourier_frequencies(m, T)
-#     U = Vector{Vector{C}}(undef, length(y))
-#     for i in eachindex(f)
-#         U[i] = exp.(2π*im*f[i].*y.dt)
-#     end
-# end
-
 """
- function centered_fft(x,Δt)
+    function centered_fft(y::RegularTimeseries)
 
- Computes FFT, with zero frequency in the center, and returns 
-  dimensional frequency vector.
+Computes FFT, with zero frequency in the center, and returns 
+dimensional frequency vector.
 
-- Adapted from a function written by Quan Quach of blinkdagger.com 
-- Tom Farrar, 2016, jfarrar@whoi.edu
-- Julia version, G Jake Gebbie, 2021, ggebbie@whoi.edu
+Adapted from a function written by Quan Quach of blinkdagger.com 
+Modified by Tom Farrar, 2016, jfarrar@whoi.edu. Julia version,
+<G Jake Gebbie, ggebbie@whoi.edu>, 2021.
 
 # Arguments
-- `x::RegularTimeseries`
+- `y::RegularTimeseries`
 
 # Output
-- `x̂`: centered discrete Fourier transform
-- `f`: dimensional frequency scale
+- `x̂`::FourierTransform
 """
 function centered_fft(y::RegularTimeseries)
     m = fourier_modes(y)
     T = record_length(y) 
 
-    # println("list of Fourier indices: ",m)
-    # println("record length:",T)
-
     #the dimensional frequency scale, this is an "iterator", not a vector, in julia
     f = fourier_frequencies(m, T)
-    # println("Fourier frequencies:", f)
 
     # df = fundamental frequency
     df = f[1]
@@ -159,17 +192,21 @@ function centered_fft(y::RegularTimeseries)
     the zero frequency is in the center.
     If you are going to compute an IFFT, 
     first use X=ifftshift(X) to undo the shift =#
-    # x̂ = fftshift(x̂)
     x̂ = fftshift(fft(OffsetArrays.no_offset_view(y.x)))
     return FourierTransform(OffsetArray(x̂, m), df)
 end
 
+"""
+    function centered_ifft(beta::FourierTransform)
+
+Computes inverse FFT
+
+# Output
+- `x`::RegularTimeseries
+"""
 function centered_ifft(beta::FourierTransform)
     y = ifft(ifftshift(OffsetArrays.no_offset_view(beta.coeff)))
-    # println("largest complex component is ", maximum(abs.(real.(im.*y))))
-    # println("largest complex component is ", maximum(abs.(imag.(y))))
     f_nyquist = -beta.df*first(eachindex(beta.coeff))
-    # f_nyquist = -beta.freq[begin]
     dt = 1 / (2*f_nyquist)
 
     # assume indices start at zero
@@ -190,7 +227,7 @@ function FourierTransform_manual(y::RegularTimeseries)
 
         # check that eachindex correctly pulls indices
         for n in eachindex(y.x)
-        # for n in eachindex(y.time)
+            # for n in eachindex(y.time)
             # println(n)
             # println(exp(-2π*im*f[m]*y.t[n]) * y.x[n])
             # println(β[m])
@@ -203,9 +240,6 @@ function FourierTransform_manual(y::RegularTimeseries)
     offset = first(eachindex(f)) - 1
     return FourierTransform(OffsetArray(β, offset), f[1])
 end
-
-# default version: fast FFT
-# FourierTransform(y::RegularTimeseries) = FourierTransform(y; alg=:centered_fft)
 
 function FourierTransform(y::RegularTimeseries; alg=:centered_fft)
     if alg==:centered_fft
@@ -232,7 +266,8 @@ Base.length(x::FourierTransform) = 1
 """
     expand(t, beta::FourierTransform)
 
-t is the time elapsed from record start, t=0
+Expand the complex exponentials at time,
+t, the time elapsed from record start, t=0.
 """
 function expand(t, beta::FourierTransform{C, T}) where {C, T}
     N = length(beta.coeff) # number of observations
@@ -251,7 +286,7 @@ expand(t::Number, n::Number, beta::FourierTransform) =
     beta.coeff[n] * exp(2π*im*beta.df*n*t) / length(beta.coeff)
 
 """
-    derivative(t, beta::FourierTransform)
+derivative(t, beta::FourierTransform)
 
 t is the time elapsed from record start, t=0
 """
@@ -272,12 +307,9 @@ end
 derivative(t::Number, n::Number, beta::FourierTransform) =
     2π*im*n*beta.df*beta.coeff[n] * exp(2π*im*beta.df*n*t) / length(beta.coeff)
 
-# function RegularTimeseries(beta::FourierTransform, t::AbstractVector)
 function RegularTimeseries_manual(beta::FourierTransform)
     N = length(beta.coeff) # number of observations
     y = zeros(0:N-1) # an OffsetArray
-    # y = zeros(Float64, N)
-    # f_nyquist = -beta.freq[begin]
     f_nyquist = -beta.df*first(eachindex(beta.coeff))
     dt = 1 / (2*f_nyquist)
     
@@ -291,24 +323,13 @@ end
 
 function convolve(w::RegularTimeseries,y::RegularTimeseries)
     # require time sampling to be equal
-    # (first(diff(w.time)) != first(diff(y.time))) &&
     w.dt != y.dt && error("time sampling required to be consistent")
-
-    # w required to have a zero time for reference
-    # i0 = findfirst(iszero, w.time)
-            
-    # # if isempty(i0)
-    # if minimum(eachindex(w.x)) > 0 || maximum(eachindex(w.x)) < 0
-    #     # if no zero, could add code to extrapolate off end of time grid
-    #     error("time grid not consistent")
-    # end
 
     i0 = 0 # by construction with OffsetArrays
     h = zero(y.x) # output
     nmin = minimum(eachindex(y.x))
     nmax = maximum(eachindex(y.x))
     for n in eachindex(y.x)
-        # println(n)
 	for m in eachindex(w.x)
 	    if (nmin <= (n-m+i0) <= nmax) # check bounds
 		h[n] += w.x[m] * y.x[n-m+i0]
@@ -321,7 +342,6 @@ function convolve(w::RegularTimeseries,y::RegularTimeseries)
 	    end
 	end
     end
-    # return RegularTimeseries(h, y.time)
     return RegularTimeseries(h, y.dt)
 end
 
@@ -351,17 +371,16 @@ function periodogram(ŷ::FourierTransform)
 end
 
 """
- function band_avg.jl   Block averages for band averaging
- [yy_avg]=band_avg(yy,num,dimension)
+    function band_avg(yy,num,dimension)
 
- Inputs:
-	yy, quantity to be averaged (must be vector or matrix)
+Inputs:
+yy, quantity to be averaged (must be vector or matrix)
 
-	num, number of bands to average
-	dimension (optional), dimension to average along; if specified, must be 1 or 2
+num, number of bands to average
+dimension (optional), dimension to average along; if specified, must be 1 or 2
 
- Tom Farrar, 2016, jfarrar@whoi.edu
- Ported to Julia, Jake Gebbie, 2021, jgebbie@whoi.edu =#
+Tom Farrar, 2016, jfarrar@whoi.edu
+Ported to Julia, Jake Gebbie, 2021, jgebbie@whoi.edu =#
 """
 function band_average(yy, num; dim=missing)
     numdims = ndims(yy)
@@ -414,13 +433,13 @@ function band_average(psi::FrequencySpectrum, num; dim=missing)
 end
 
 """
-    function confid(α,ν)
+function confid(α,ν)
 
-    Help with computing confidence intervals
+Help with computing confidence intervals
 
-    should be sigma^2/S^2 confidence bounds where sigma^2 is true variance
-    check value (J&W) is alpha =.05, nu=19, lower bound is .58
-    upper bound is 2.11
+should be sigma^2/S^2 confidence bounds where sigma^2 is true variance
+check value (J&W) is alpha =.05, nu=19, lower bound is .58
+upper bound is 2.11
 
 """
 function confid(α,ν)
@@ -435,7 +454,7 @@ function confid(α,ν)
 end
 
 """
-    function total_spectral_energy(Φ,f)
+function total_spectral_energy(Φ,f)
 
 # Arguments
 - `Φ`: power spectral density
@@ -464,19 +483,22 @@ function total_spectral_energy(x::FourierTransform)
     return e/N^2
 end
 
-# """
-#     spectral_power_law(β,f) = f.^-β  
+"""
+    spectral_power_law(β,f)
 
-# # Arguments
-# - `f`: frequencies
-# - `β`: power law coefficient, low frequencies
-# - `e`: total energy
-# - `βhi`: power law coefficient, high frequencies
-# # Output
-# - `Φ`: spectral energy density
-# for units
-# type of `f` requires uniform vector
-# """
+Create a `FrequencySpectrum` according to f.^-β.  
+For units, type of `f` requires uniform vector.
+
+# Arguments
+- `f`: frequencies
+- `β`: power law coefficient, low frequencies
+- `e`: total energy
+# Optional Arguments
+- `βhi`: power law coefficient, high frequencies
+- `fbreak`:: break in power lawrence
+# Output
+- `Φ`::`FrequencySpectrum`
+"""
 function spectral_power_law(f, βlo, σ2=1.0; βhi=nothing, fbreak=nothing)
     nf = length(f)
     fnondim = f ./ first(f)
@@ -495,10 +517,10 @@ function spectral_power_law(f, βlo, σ2=1.0; βhi=nothing, fbreak=nothing)
 end
 
 """
-    function spectralbasis(t,f)
+function spectralbasis(t,f)
 
-    basis function to reconstruct mean ocean temperature (Θ̄)
-    on the t temporal grid
+basis function to reconstruct mean ocean temperature (Θ̄)
+on the t temporal grid
 
 # Arguments
 - `t`: times of interest
@@ -506,9 +528,9 @@ end
 - `includemean=false::Bool`: include the mean value in the basis set?, 
 # Output
 - `A::Matrix`: each column is an independent basis function,
-               first (nt-1)/2 columns are sine coefficients
-               second (nt-1)/2 columns are cosine coefficients
-               last column represents the mean value
+first (nt-1)/2 columns are sine coefficients
+second (nt-1)/2 columns are cosine coefficients
+last column represents the mean value
 """
 function spectral_basis(t,f,includemean=false)
     
@@ -536,21 +558,16 @@ function time_average(tstart::Number, tend::Number, x::FourierTransform)
     # iterate over frequencies
     # why first? the first dimension is Frequency
     for m in eachindex(x.coeff)
-        # # println(m)
-        # if m ≠ 0
-        #     b += integrate(tstart, tend, x, m)
-        # end
         b += time_average(tstart, tend, x, m) 
     end
     return b
-    # return real.(( b /(tend - tstart) + x.coeff[0])/ N)
 end
 
-time_average(tstart, tend, x::FourierTransform, m::Number) = ( m ≠ 0) ?
+time_average(tstart, tend, x::FourierTransform, m::Number) =
+    ( m ≠ 0) ?
     (real(integrate(tstart, tend, x, m)) / (length(x.coeff) * (tend - tstart))) :
-     (real(x.coeff[0])/length(x.coeff))
+    (real(x.coeff[0])/length(x.coeff))
                                                              
-
 function integrate(tstart, tend, x::FourierTransform, m::Number)
     # N = length(x.coeff)
     # A = x.coeff[m] / (2π * im * x.freq[m]) # amplitude of wave 
@@ -579,7 +596,8 @@ function FourierTransform(Ψ::FrequencySpectrum)
     # get phase of positive frequencies
     # nf = -first(axes(Ψ.psi))
     nf = maximum(eachindex(Ψ.psi))
-    ϕ = vcat(2π *rand(nf-1) .- π, 0.0) # Nyquist must be zero phase
+    ϕnyquist = (rand() > 0.5) ? 0.0 : π # Nyquist must be 0° or 180° phase
+    ϕ = vcat(2π *rand(nf-1) .- π, ϕnyquist) 
     N = 2nf
     df = first(Ψ.freq)
     T = 1/df
