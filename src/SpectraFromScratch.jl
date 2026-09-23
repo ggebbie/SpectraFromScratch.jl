@@ -97,8 +97,8 @@ struct FrequencySpectrum{T}
 end
 
 fourier_modes(N::Number) = iseven(N) ?
-	                       (m = (-convert(Int,N/2):convert(Int,(N/2)-1))) :
-	                       (m = (-convert(Int,(N-1)/2):convert(Int,((N-1)/2))))
+	                   (m = (-convert(Int,N/2):convert(Int,(N/2)-1))) :
+	                   (m = (-convert(Int,(N-1)/2):convert(Int,((N-1)/2))))
 
 fourier_modes(y::RegularTimeseries) = fourier_modes(length(y))
 
@@ -125,10 +125,10 @@ record_length(y::RegularTimeseries) = length(y) * sampling_resolution(y)
 # end
 
 """
- function centered_fft(x,Δt)
+function centered_fft(x,Δt)
 
- Computes FFT, with zero frequency in the center, and returns 
-  dimensional frequency vector.
+Computes FFT, with zero frequency in the center, and returns 
+dimensional frequency vector.
 
 - Adapted from a function written by Quan Quach of blinkdagger.com 
 - Tom Farrar, 2016, jfarrar@whoi.edu
@@ -190,7 +190,7 @@ function FourierTransform_manual(y::RegularTimeseries)
 
         # check that eachindex correctly pulls indices
         for n in eachindex(y.x)
-        # for n in eachindex(y.time)
+            # for n in eachindex(y.time)
             # println(n)
             # println(exp(-2π*im*f[m]*y.t[n]) * y.x[n])
             # println(β[m])
@@ -230,7 +230,7 @@ end
 Base.length(x::FourierTransform) = 1
 
 """
-    expand(t, beta::FourierTransform)
+expand(t, beta::FourierTransform)
 
 t is the time elapsed from record start, t=0
 """
@@ -251,7 +251,7 @@ expand(t::Number, n::Number, beta::FourierTransform) =
     beta.coeff[n] * exp(2π*im*beta.df*n*t) / length(beta.coeff)
 
 """
-    derivative(t, beta::FourierTransform)
+derivative(t, beta::FourierTransform)
 
 t is the time elapsed from record start, t=0
 """
@@ -351,17 +351,17 @@ function periodogram(ŷ::FourierTransform)
 end
 
 """
- function band_avg.jl   Block averages for band averaging
- [yy_avg]=band_avg(yy,num,dimension)
+function band_avg.jl   Block averages for band averaging
+[yy_avg]=band_avg(yy,num,dimension)
 
- Inputs:
-	yy, quantity to be averaged (must be vector or matrix)
+Inputs:
+yy, quantity to be averaged (must be vector or matrix)
 
-	num, number of bands to average
-	dimension (optional), dimension to average along; if specified, must be 1 or 2
+num, number of bands to average
+dimension (optional), dimension to average along; if specified, must be 1 or 2
 
- Tom Farrar, 2016, jfarrar@whoi.edu
- Ported to Julia, Jake Gebbie, 2021, jgebbie@whoi.edu =#
+Tom Farrar, 2016, jfarrar@whoi.edu
+Ported to Julia, Jake Gebbie, 2021, jgebbie@whoi.edu =#
 """
 function band_average(yy, num; dim=missing)
     numdims = ndims(yy)
@@ -414,13 +414,13 @@ function band_average(psi::FrequencySpectrum, num; dim=missing)
 end
 
 """
-    function confid(α,ν)
+function confid(α,ν)
 
-    Help with computing confidence intervals
+Help with computing confidence intervals
 
-    should be sigma^2/S^2 confidence bounds where sigma^2 is true variance
-    check value (J&W) is alpha =.05, nu=19, lower bound is .58
-    upper bound is 2.11
+should be sigma^2/S^2 confidence bounds where sigma^2 is true variance
+check value (J&W) is alpha =.05, nu=19, lower bound is .58
+upper bound is 2.11
 
 """
 function confid(α,ν)
@@ -435,7 +435,7 @@ function confid(α,ν)
 end
 
 """
-    function total_spectral_energy(Φ,f)
+function total_spectral_energy(Φ,f)
 
 # Arguments
 - `Φ`: power spectral density
@@ -495,10 +495,10 @@ function spectral_power_law(f, βlo, σ2=1.0; βhi=nothing, fbreak=nothing)
 end
 
 """
-    function spectralbasis(t,f)
+function spectralbasis(t,f)
 
-    basis function to reconstruct mean ocean temperature (Θ̄)
-    on the t temporal grid
+basis function to reconstruct mean ocean temperature (Θ̄)
+on the t temporal grid
 
 # Arguments
 - `t`: times of interest
@@ -506,9 +506,9 @@ end
 - `includemean=false::Bool`: include the mean value in the basis set?, 
 # Output
 - `A::Matrix`: each column is an independent basis function,
-               first (nt-1)/2 columns are sine coefficients
-               second (nt-1)/2 columns are cosine coefficients
-               last column represents the mean value
+first (nt-1)/2 columns are sine coefficients
+second (nt-1)/2 columns are cosine coefficients
+last column represents the mean value
 """
 function spectral_basis(t,f,includemean=false)
     
@@ -547,8 +547,8 @@ function time_average(tstart::Number, tend::Number, x::FourierTransform)
 end
 
 time_average(tstart, tend, x::FourierTransform, m::Number) = ( m ≠ 0) ?
-    (real(integrate(tstart, tend, x, m)) / (length(x.coeff) * (tend - tstart))) :
-     (real(x.coeff[0])/length(x.coeff))
+                                                             (real(integrate(tstart, tend, x, m)) / (length(x.coeff) * (tend - tstart))) :
+                                                             (real(x.coeff[0])/length(x.coeff))
                                                              
 
 function integrate(tstart, tend, x::FourierTransform, m::Number)
@@ -579,7 +579,8 @@ function FourierTransform(Ψ::FrequencySpectrum)
     # get phase of positive frequencies
     # nf = -first(axes(Ψ.psi))
     nf = maximum(eachindex(Ψ.psi))
-    ϕ = vcat(2π *rand(nf-1) .- π, 0.0) # Nyquist must be zero phase
+    ϕnyquist = (rand() > 0.5) ? 0.0 : π # Nyquist must be 0° or 180° phase
+    ϕ = vcat(2π *rand(nf-1) .- π, ϕnyquist) 
     N = 2nf
     df = first(Ψ.freq)
     T = 1/df
