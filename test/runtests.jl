@@ -76,11 +76,12 @@ using OffsetArrays
 
     @testset "spectrum" begin
 
-        # OK, now let's try doing a spectrum.
-        # First, though, let's recall what we are wanting to do overall.
-        # We want to make a function to estimate the band-averaged spectrum and plot it with a 95% confidence interval.
-        # To do that, we will follow the steps from Section 4.7.1 of the Dynamical Insights From Data on spectral analysis
-        
+        #=
+        OK, now let's try doing a spectrum.
+        First, though, let's recall what we are wanting to do overall.
+        We want to make a function to estimate the band-averaged spectrum and plot it with a 95% confidence interval.
+        To do that, we will follow the steps from Section 4.7.1 of the Dynamical Insights From Data on spectral analysis
+        =#
         yy = yb # just renaming yb to mimic matlab code
         N = length(yy)
         T = N * Δt
