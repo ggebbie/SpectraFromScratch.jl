@@ -113,18 +113,18 @@ end
 One-sided frequency spectrum.
 
 # Fields
-- `psi::AbstractVector`: power spectral density
+- `psd::AbstractVector`: power spectral density
 - `freq::AbstractVector`: frequencies
 """
 struct FrequencySpectrum{T}
-    psi::AbstractVector
+    psd::AbstractVector
     freq::AbstractVector
-    function FrequencySpectrum(psi, f)
+    function FrequencySpectrum(psd, f)
         isnegative = (x -> x < zero(x))
         if any(isnegative.(f))
             error("one sided spectrum where frequency must be positive ")
         else
-            new{eltype(real.(psi))}(real.(psi), f)
+            new{eltype(real.(psd))}(real.(psd), f)
         end
     end
 end
@@ -141,8 +141,8 @@ fourier_modes(y::RegularTimeseries) = fourier_modes(length(y))
 
 fourier_modes(Ψ::FrequencySpectrum; even=true) =
     (even = true) ?
-    fourier_modes(2length(Ψ.psi))  :
-    fourier_modes(2length(Ψ.psi) + 1)
+    fourier_modes(2length(Ψ.psd))  :
+    fourier_modes(2length(Ψ.psd) + 1)
     
 """
     fourier_frequencies(m, T)
@@ -348,18 +348,18 @@ periodogram(y::RegularTimeseries) = periodogram(FourierTransform(y))
 function periodogram(ŷ::FourierTransform)
     T = 1 / ŷ.freq[1] #SpectraFromScratch.record_length(y)
     N = length(ŷ.coeff) #length(y.x)
-    psi = zeros(eltype(abs(first(ŷ.coeff))^2), maximum(abs.(eachindex(ŷ.coeff))))
+    psd = zeros(eltype(abs(first(ŷ.coeff))^2), maximum(abs.(eachindex(ŷ.coeff))))
     f = zeros(eltype(first(ŷ.freq)), maximum(abs.(eachindex(ŷ.coeff))))
     for m in eachindex(ŷ.coeff)
         if m < 0
-            psi[-m] += abs(ŷ.coeff[m])^2
+            psd[-m] += abs(ŷ.coeff[m])^2
             f[-m] = abs(ŷ.freq[m])
         elseif m > 0
-            psi[m] += abs(ŷ.coeff[m])^2
+            psd[m] += abs(ŷ.coeff[m])^2
             f[m] = ŷ.freq[m] # overwrite just to be sure
         end
     end
-    return FrequencySpectrum((T/N^2)*psi, f)     
+    return FrequencySpectrum((T/N^2)*psd, f)     
 end
 
 """
@@ -419,7 +419,7 @@ function band_average(yy, num; dim=missing)
 end
 
 function band_average(psi::FrequencySpectrum, num; dim=missing)
-    yy_avg = band_average(psi.psi, num, dim=dim)
+    yy_avg = band_average(psi.psd, num, dim=dim)
     f_avg = band_average(psi.freq, num, dim=dim)
     return FrequencySpectrum(yy_avg, f_avg)
 end
@@ -460,8 +460,8 @@ function total_spectral_energy(Ψ,f)
 end
 function total_spectral_energy(Ψ::FrequencySpectrum)
     f = Ψ.freq
-    psi = Ψ.psi
-    return total_spectral_energy(psi, f)
+    psd = Ψ.psd
+    return total_spectral_energy(psd, f)
 end
 function total_spectral_energy(x::FourierTransform)
     N = length(x.coeff)
@@ -583,12 +583,8 @@ function FourierTransform(Ψ::FrequencySpectrum)
     ## get timeseries that goes with frequency spectrum
     # NOTE: This function is not deterministic.
     # It is one timeseries realization of the spectrum, but there are others.
-    
-    # get phase of positive frequencies
-    # nf = -first(axes(Ψ.psi))
-    # modes = eachindex(Ψ.psi)
     modes = fourier_modes(Ψ)
-    nf = maximum(abs.(eachindex(Ψ.psi)))
+    nf = maximum(abs.(eachindex(Ψ.psd)))
 
     # careful here about N even or odd
     ϕnyquist = rand() > 0.5 ? 0.0 : π # Nyquist must be 0° or 180° phase
@@ -617,7 +613,7 @@ end
 Retrieve amplitudes for individual positive + negative frequency waves.        
 """
 function amplitudes(Ψ::FrequencySpectrum; even = true)
-    nf = length(Ψ.psi)
+    nf = length(Ψ.psd)
     T = 1/first(Ψ.freq)
     modes  = fourier_modes(Ψ)
     N = length(modes)
@@ -625,10 +621,10 @@ function amplitudes(Ψ::FrequencySpectrum; even = true)
     for m in modes
         if even && m == -nf # solo Nyquist frequency
             # keep all energy in one wave
-            amp[m] = √(N^2*Ψ.psi[-m]/T)
+            amp[m] = √(N^2*Ψ.psd[-m]/T)
         elseif !iszero(m)
             # split energy evenly betwwen + and - frequencies
-            amp[m] = √(N^2*Ψ.psi[abs(m)]/(2T))
+            amp[m] = √(N^2*Ψ.psd[abs(m)]/(2T))
         end
     end
     return amp
