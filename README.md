@@ -7,7 +7,7 @@
 
 Spectral analysis can get complicated, but the basic concepts are simple. Here I follow Tom Farrar's approach of building up a spectral analysis toolbox from scratch. It's not really from scratch as I rely on Steven Johnson's Fastest Fourier Transform of the West (FFTW.jl). The goal here is not to make the best operational spectral analysis, but instead to facilitate my learning and to make useful tools at the same time.
 
-This package originated as a Julia Colab notebook in ipynb format written by Tom Farrar <jfarrar@whoi.edu>. Here that notebook is transformed to the standard Julia package format. 
+This package originated as a Julia Colab notebook in ipynb format written by Tom Farrar (@jtomfarrar). Here that notebook is transformed to the standard Julia package format. 
 
 # Usage guide
 
