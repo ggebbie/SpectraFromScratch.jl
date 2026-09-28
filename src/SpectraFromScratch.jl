@@ -230,8 +230,6 @@ function FourierTransform_manual(y::RegularTimeseries)
     β = OffsetArray(zero(Vector{ComplexF64}(undef, length(y))), m)
 
     for m in eachindex(f)
-        # println(m)
-
         # check that eachindex correctly pulls indices
         for n in eachindex(y.x)
             # here assuming (n-1) is ok
@@ -294,14 +292,10 @@ t is the time elapsed from record start, t=0
 function derivative(t, beta::FourierTransform{C, T}) where {C, T}
     N = length(beta.coeff) # number of observations
     y = 0 * real(first(beta.coeff)*beta.df)
-    # y = zero(C)
     for n in eachindex(beta.coeff)
         # assume time starts at zero
         y += derivative(t, n, beta)
-        # y += real.(beta.coeff[j] * exp(2π*im*beta.df*j*t))
     end
-    # println(imag(y))
-    # abs(imag(y)) > 1e-10 && println("note: imaginary =", imag(y)) # 
     return real(y) 
 end
 
@@ -509,7 +503,6 @@ function spectral_power_law(f, βlo, σ2=1.0; βhi=nothing, fbreak=nothing)
         # high-low frequency break point, add to arguments
         fbreak_nondim =  fbreak ./ first(f)
         scale = fbreak_nondim^(βlo - βhi)
-        #println("scale ",scale)
         Ψnondim .+= (1/scale)*fnondim.^-βhi
     end
 
@@ -602,7 +595,6 @@ function FourierTransform(Ψ::FrequencySpectrum)
 
     # careful here about N even or odd
     ϕnyquist = rand() > 0.5 ? 0.0 : π # Nyquist must be 0° or 180° phase
-    println(ϕnyquist)
     
     ϕ = vcat(2π *rand(nf-1) .- π, ϕnyquist) 
     N = length(modes) #2nf
@@ -619,35 +611,6 @@ function FourierTransform(Ψ::FrequencySpectrum)
             xhat[0] = zero(eltype(xhat))
         end
     end
-        
-    # get positive real and imaginary coefficients
-    # rcoeff = zeros(nf)
-    # icoeff = zeros(nf)
-    # for n in 1:nf
-
-    #     if n == nf
-    #         # rcoeff[n] = √(Ψ.psi[n]/(1 + tan(ϕ[n])^2))
-    #         rcoeff[n] = √( (N^2*Ψ.psi[n]/T) / (1 + tan(ϕ[n])^2))
-    #     else
-    #         rcoeff[n] = √( (N^2*Ψ.psi[n]/(2T)) / (1 + tan(ϕ[n])^2))
-    #     end
-    #     icoeff[n] = tan(ϕ[n]) * rcoeff[n]
-    # end
-    
-    # # turn frequency spectrum into Fourier Transform
-    # xhat = OffsetArray(zeros(ComplexF64,N),-nf:nf-1)
-
-    # for n = -nf:nf-1 # assuming even number
-    #     if n < 0
-    #         # xhat[n] = (N/2)*(rcoeff[-n] - im*icoeff[-n])
-    #         xhat[n] = (rcoeff[-n] - im*icoeff[-n])
-    #     elseif iszero(n)
-    #         xhat[n] = 0.0
-    #     elseif n > 0
-    #         # xhat[n] = (N/2)*(rcoeff[n] + im*icoeff[n])
-    #         xhat[n] = (rcoeff[n] + im*icoeff[n])
-    #     end
-    # end
     return FourierTransform(xhat, df)
 end
 
@@ -659,12 +622,10 @@ Retrieve amplitudes for individual positive + negative frequency waves.
 function amplitudes(Ψ::FrequencySpectrum; even = true)
     nf = length(Ψ.psi)
     T = 1/first(Ψ.freq)
-    println(T)
     modes  = fourier_modes(Ψ)
     N = length(modes)
     amp = OffsetArray(zeros(N), modes)
     for m in modes
-        println(m)
         if even && m == -nf # solo Nyquist frequency
             # keep all energy in one wave
             amp[m] = √(N^2*Ψ.psi[-m]/T)
