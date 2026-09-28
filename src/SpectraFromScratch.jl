@@ -108,16 +108,13 @@ end
 
 
 """
-    RegularTimeseries{T<:Number, R <:Number}
+    FrequencySpectrum{T}
 
-Store a uniformly-sampled timeseries in an efficient way such that
-- not all times must be stored but they can be retrieved with `x.time`
-- be sure that the mean and Nyquist frequencies have real coefficients `x.x`
-- use an `OffsetArray` in symmetry with `FourierTransform`
+One-sided frequency spectrum.
 
 # Fields
-- `x::OffsetVector`: timeseries values
-- `dt<: Number`: temporal spacing (fixed)
+- `psi::AbstractVector`: power spectral density
+- `freq::AbstractVector`: frequencies
 """
 struct FrequencySpectrum{T}
     psi::AbstractVector
