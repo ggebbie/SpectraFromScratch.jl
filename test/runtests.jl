@@ -76,11 +76,12 @@ using OffsetArrays
 
     @testset "spectrum" begin
 
-        # OK, now let's try doing a spectrum.
-        # First, though, let's recall what we are wanting to do overall.
-        # We want to make a function to estimate the band-averaged spectrum and plot it with a 95% confidence interval.
-        # To do that, we will follow the steps from Section 4.7.1 of the Dynamical Insights From Data on spectral analysis
-        
+        #=
+        OK, now let's try doing a spectrum.
+        First, though, let's recall what we are wanting to do overall.
+        We want to make a function to estimate the band-averaged spectrum and plot it with a 95% confidence interval.
+        To do that, we will follow the steps from Section 4.7.1 of the Dynamical Insights From Data on spectral analysis
+        =#
         yy = yb # just renaming yb to mimic matlab code
         N = length(yy)
         T = N * Δt
@@ -98,6 +99,11 @@ using OffsetArrays
         @test isapprox(total_spectral_energy(Ψraw), sum(y.x.^2)/length(y.x))
         @test isapprox(total_spectral_energy(Ψraw), total_spectral_energy(ŷq))
 
+        # round trip to `FourierTransform` and back
+        ŷraw = FourierTransform(Ψraw)
+        Ψraw_roundtrip = periodogram(ŷraw)
+        @test all(isapprox.(Ψraw.psi,Ψraw_roundtrip.psi)) 
+        
         σ2target = 10.0
         psi = spectral_power_law(Ψraw.freq, -2.0, σ2target)
         @test isapprox(total_spectral_energy(psi), σ2target)
