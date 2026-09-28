@@ -93,7 +93,7 @@ using OffsetArrays
         ŷq = FourierTransform(y)
 
         Ψraw = SpectraFromScratch.periodogram(y)
-        @test all(Ψraw.psi .> zero(first(Ψraw.psi)))
+        @test all(Ψraw.psd .> zero(first(Ψraw.psd)))
 
         # test the total spectral energy
         @test isapprox(total_spectral_energy(Ψraw), sum(y.x.^2)/length(y.x))
@@ -102,11 +102,11 @@ using OffsetArrays
         # round trip to `FourierTransform` and back
         ŷraw = FourierTransform(Ψraw)
         Ψraw_roundtrip = periodogram(ŷraw)
-        @test all(isapprox.(Ψraw.psi,Ψraw_roundtrip.psi)) 
+        @test all(isapprox.(Ψraw.psd,Ψraw_roundtrip.psd)) 
         
         σ2target = 10.0
-        psi = spectral_power_law(Ψraw.freq, -2.0, σ2target)
-        @test isapprox(total_spectral_energy(psi), σ2target)
+        psd = spectral_power_law(Ψraw.freq, -2.0, σ2target)
+        @test isapprox(total_spectral_energy(psd), σ2target)
 
         ## power law with a break
         fbreak = 1/(100)
@@ -117,7 +117,7 @@ using OffsetArrays
         nbands = 11
         Ψavg = band_average(Ψraw, nbands)
 
-        @test length(Ψraw.psi) > length(Ψavg.psi)
+        @test length(Ψraw.psd) > length(Ψavg.psd)
 
         #plot(freq,real(Ψavg),leg=false)
         #plot!(freq,imag(Ψavg),leg=false)
@@ -165,7 +165,7 @@ using OffsetArrays
             # if inverted, do you recover same answer?
             Ψ̃ = periodogram(timeseries)
 
-            @test all(isapprox.(Ψ.psi,Ψ̃.psi))
+            @test all(isapprox.(Ψ.psd,Ψ̃.psd))
         end
     end
     
