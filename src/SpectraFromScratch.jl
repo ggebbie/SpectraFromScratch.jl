@@ -87,9 +87,11 @@ end
 """
     function RegularTimeseries(x::AbstractVector, t::AbstractVector)
 """
-function RegularTimeseries(x::AbstractVector, t::AbstractVector)
+function RegularTimeseries(x::AbstractVector, t::AbstractVector{R}) where R <: Number
     length(x) != length(t) && error("lengths do not match")
-    if all( abs.(diff(diff(t))) .< 1e-12*one(eltype(t)))
+    
+    # if all( abs.(diff(diff(t))) .< 1e-12*oneunit(eltype(t)))
+    if all( abs.(diff(diff(t))) .< 1e-12*oneunit(R))
 
         # minimize machine error
         dt = (last(t)-first(t))/(length(t)-1)
@@ -594,7 +596,9 @@ function FourierTransform(Ψ::FrequencySpectrum)
     df = first(Ψ.freq)
 
     amps = amplitudes(Ψ)
-    xhat = OffsetArray(zeros(ComplexF64,N),modes)
+    unt = first(amps)*exp(im)
+    # xhat = OffsetArray(zeros(ComplexF64,N),modes)
+    xhat = OffsetArray(zeros(eltype(unt),N),modes)
     for m in modes
         if m > 0
             xhat[m] = amps[m]*exp(im*ϕ[m]) # apply phase
@@ -617,7 +621,8 @@ function amplitudes(Ψ::FrequencySpectrum; even = true)
     T = 1/first(Ψ.freq)
     modes  = fourier_modes(Ψ)
     N = length(modes)
-    amp = OffsetArray(zeros(N), modes)
+    physvar = sqrt(first(Ψ.psd)*first(Ψ.freq))
+    amp = OffsetArray(zeros(eltype(physvar),N), modes)
     for m in modes
         if even && m == -nf # solo Nyquist frequency
             # keep all energy in one wave
