@@ -52,12 +52,21 @@ using Unitful
             @test isapprox(y.time, ỹ.time)
 
             # expand at a time point
-            @test isapprox(expand(0.0, ŷ), ỹ.x[0])
+            if units
+                @test isapprox(expand(0.0u"yr", ŷ), ỹ.x[0])
+            else
+                @test isapprox(expand(0.0, ŷ), ỹ.x[0])
+            end
 
-            # does time average converge?
-            @test abs(time_average(2.9,3.1,ŷ) - expand(3, ŷ)) >
-                  abs(time_average(2.99,3.01,ŷ) - expand(3, ŷ))  
-
+            if units
+                # does time average converge?
+                @test abs(time_average(2.9u"yr",3.1u"yr",ŷ) - expand(3u"yr", ŷ)) >
+                      abs(time_average(2.99u"yr",3.01u"yr",ŷ) - expand(3u"yr", ŷ))  
+            else
+                @test abs(time_average(2.9,3.1,ŷ) - expand(3, ŷ)) >
+                      abs(time_average(2.99,3.01,ŷ) - expand(3, ŷ))  
+            end
+            
             @testset "phase" begin
                 phi = phase(ŷ)
                 @test all(-π .< phi .< π )

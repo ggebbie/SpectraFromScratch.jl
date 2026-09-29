@@ -226,7 +226,9 @@ function FourierTransform_manual(y::RegularTimeseries)
     dt = -1 / (2*f[begin])
 
     # make a β coefficient for every value of m
-    β = OffsetArray(zero(Vector{ComplexF64}(undef, length(y))), m)
+    ft_type = eltype(first(y.x)*im)
+    # β = OffsetArray(zero(Vector{ComplexF64}(undef, length(y))), m)
+    β = OffsetArray(zero(Vector{ft_type}(undef, length(y))), m)
 
     for m in eachindex(f)
         # check that eachindex correctly pulls indices
@@ -276,7 +278,7 @@ function expand(t, beta::FourierTransform{C, T}) where {C, T}
         y += expand(t, n, beta)
         # y += real.(beta.coeff[j] * exp(2π*im*beta.df*j*t))
     end
-    abs(imag(y)) > 1e-10 && println("note: imaginary =", imag(y))
+    abs(imag(y)) > 1e-10*oneunit(eltype(imag(y))) && println("note: imaginary =", imag(y))
     return real(y) 
 end
 
@@ -303,9 +305,12 @@ derivative(t::Number, n::Number, beta::FourierTransform) =
 
 function RegularTimeseries_manual(beta::FourierTransform)
     N = length(beta.coeff) # number of observations
-    y = zeros(0:N-1) # an OffsetArray
     f_nyquist = -beta.df*first(eachindex(beta.coeff))
     dt = 1 / (2*f_nyquist)
+
+    # dumb to do a calculation just to get the type
+    y_eltype = eltype(expand(dt, beta))
+    y = zeros(y_eltype, 0:N-1) # an OffsetArray
     
     # assume ok to start at index 0
     for  i in eachindex(y)
