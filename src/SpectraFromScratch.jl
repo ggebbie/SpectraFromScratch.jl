@@ -381,7 +381,7 @@ dimension (optional), dimension to average along; if specified, must be 1 or 2
 Tom Farrar, 2016, jfarrar@whoi.edu
 Ported to Julia, Jake Gebbie, 2021, jgebbie@whoi.edu =#
 """
-function band_average(yy, num; dim=missing)
+function band_average(yy::AbstractVector{T}, num; dim=missing) where T <: Number
     numdims = ndims(yy)
     nyy = size(yy)
 
@@ -390,7 +390,7 @@ function band_average(yy, num; dim=missing)
     # shortcut execution
     if numdims == 1
         # initialize yy_avg
-        yy_avg = fill(0,floor(Integer,nyy[1]/num))
+        yy_avg = fill(zero(T),floor(Integer,nyy[1]/num))
         for n = 1:num
             yy_avg += yy[n:num:end-(num-n)]
         end
@@ -407,7 +407,7 @@ function band_average(yy, num; dim=missing)
         if dim==1
             # initialize yy_avg
             nyy_avg = (floor(Integer,nyy[1]/num),nyy[2])
-            yy_avg = fill(0,nyy_avg)
+            yy_avg = fill(zero(T),nyy_avg)
             for n=1:num
                 yy_avg += yy[n:num:end-(num-n),:]
             end
