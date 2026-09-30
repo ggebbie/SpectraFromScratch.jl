@@ -87,9 +87,11 @@ end
 """
     function RegularTimeseries(x::AbstractVector, t::AbstractVector)
 """
-function RegularTimeseries(x::AbstractVector, t::AbstractVector)
+function RegularTimeseries(x::AbstractVector, t::AbstractVector{R}) where R <: Number
     length(x) != length(t) && error("lengths do not match")
-    if all( abs.(diff(diff(t))) .< 1e-12*one(eltype(t)))
+    
+    # if all( abs.(diff(diff(t))) .< 1e-12*oneunit(eltype(t)))
+    if all( abs.(diff(diff(t))) .< 1e-12*oneunit(R))
 
         # minimize machine error
         dt = (last(t)-first(t))/(length(t)-1)
@@ -224,7 +226,9 @@ function FourierTransform_manual(y::RegularTimeseries)
     dt = -1 / (2*f[begin])
 
     # make a β coefficient for every value of m
-    β = OffsetArray(zero(Vector{ComplexF64}(undef, length(y))), m)
+    ft_type = eltype(first(y.x)*im)
+    # β = OffsetArray(zero(Vector{ComplexF64}(undef, length(y))), m)
+    β = OffsetArray(zero(Vector{ft_type}(undef, length(y))), m)
 
     for m in eachindex(f)
         # check that eachindex correctly pulls indices
@@ -274,7 +278,7 @@ function expand(t, beta::FourierTransform{C, T}) where {C, T}
         y += expand(t, n, beta)
         # y += real.(beta.coeff[j] * exp(2π*im*beta.df*j*t))
     end
-    abs(imag(y)) > 1e-10 && println("note: imaginary =", imag(y))
+    abs(imag(y)) > 1e-10*oneunit(eltype(imag(y))) && println("note: imaginary =", imag(y))
     return real(y) 
 end
 
@@ -301,9 +305,12 @@ derivative(t::Number, n::Number, beta::FourierTransform) =
 
 function RegularTimeseries_manual(beta::FourierTransform)
     N = length(beta.coeff) # number of observations
-    y = zeros(0:N-1) # an OffsetArray
     f_nyquist = -beta.df*first(eachindex(beta.coeff))
     dt = 1 / (2*f_nyquist)
+
+    # dumb to do a calculation just to get the type
+    y_eltype = eltype(expand(dt, beta))
+    y = zeros(y_eltype, 0:N-1) # an OffsetArray
     
     # assume ok to start at index 0
     for  i in eachindex(y)
@@ -374,7 +381,7 @@ dimension (optional), dimension to average along; if specified, must be 1 or 2
 Tom Farrar, 2016, jfarrar@whoi.edu
 Ported to Julia, Jake Gebbie, 2021, jgebbie@whoi.edu =#
 """
-function band_average(yy, num; dim=missing)
+function band_average(yy::AbstractVector{T}, num; dim=missing) where T <: Number
     numdims = ndims(yy)
     nyy = size(yy)
 
@@ -383,7 +390,7 @@ function band_average(yy, num; dim=missing)
     # shortcut execution
     if numdims == 1
         # initialize yy_avg
-        yy_avg = fill(0,floor(Integer,nyy[1]/num))
+        yy_avg = fill(zero(T),floor(Integer,nyy[1]/num))
         for n = 1:num
             yy_avg += yy[n:num:end-(num-n)]
         end
@@ -400,7 +407,7 @@ function band_average(yy, num; dim=missing)
         if dim==1
             # initialize yy_avg
             nyy_avg = (floor(Integer,nyy[1]/num),nyy[2])
-            yy_avg = fill(0,nyy_avg)
+            yy_avg = fill(zero(T),nyy_avg)
             for n=1:num
                 yy_avg += yy[n:num:end-(num-n),:]
             end
@@ -594,7 +601,9 @@ function FourierTransform(Ψ::FrequencySpectrum)
     df = first(Ψ.freq)
 
     amps = amplitudes(Ψ)
-    xhat = OffsetArray(zeros(ComplexF64,N),modes)
+    unt = first(amps)*exp(im)
+    # xhat = OffsetArray(zeros(ComplexF64,N),modes)
+    xhat = OffsetArray(zeros(eltype(unt),N),modes)
     for m in modes
         if m > 0
             xhat[m] = amps[m]*exp(im*ϕ[m]) # apply phase
@@ -617,7 +626,8 @@ function amplitudes(Ψ::FrequencySpectrum; even = true)
     T = 1/first(Ψ.freq)
     modes  = fourier_modes(Ψ)
     N = length(modes)
-    amp = OffsetArray(zeros(N), modes)
+    physvar = sqrt(first(Ψ.psd)*first(Ψ.freq))
+    amp = OffsetArray(zeros(eltype(physvar),N), modes)
     for m in modes
         if even && m == -nf # solo Nyquist frequency
             # keep all energy in one wave
