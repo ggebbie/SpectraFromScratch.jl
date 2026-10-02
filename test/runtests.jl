@@ -75,7 +75,7 @@ using Unitful
                 phase(ŷ.coeff[begin])
                 
                 phi = phase(ŷ)
-                @test all(-π .< phi .< π )
+                @test all(-π .<= phi .<= π )
 
                 # Somewhat more complicated due to floating point numbers
                 # Nyquist coefficient should be real
