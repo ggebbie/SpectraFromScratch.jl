@@ -108,7 +108,6 @@ function RegularTimeseries(x::AbstractVector, t::AbstractVector{R}) where R <: N
     end
 end
 
-
 """
     FrequencySpectrum{T}
 
@@ -577,11 +576,32 @@ function integrate(tstart, tend, x::FourierTransform, m::Number)
     return   A * (limit2 - limit1)
 end
 
+function phase(x::Number)
+    rr = real(x)
+    ii = imag(x)
+    if iszero(rr)
+        if ii > zero(ii)
+            return π/2
+        elseif ii < zero(ii) 
+            return -π/2
+        else
+            return NaN
+        end
+    end
+    phi = atan(ii/rr)
+    if rr > zero(rr)
+        return phi
+    elseif ii >= zero(ii)
+        return phi + π
+    else
+        return phi - π
+    end
+end
 function phase(x::FourierTransform)
     ind = first(axes(x.coeff))
     phi = OffsetArray(zeros(length(ind)), ind)
     for n in eachindex(x.coeff)
-        phi[n] = atan(imag(x.coeff[n])/real(x.coeff[n]))        
+        phi[n] = phase(x.coeff[n])
     end
     return phi
 end
@@ -622,6 +642,7 @@ end
 Retrieve amplitudes for individual positive + negative frequency waves.        
 """
 function amplitudes(Ψ::FrequencySpectrum; even = true)
+    # println("INSIDE amps")
     nf = length(Ψ.psd)
     T = 1/first(Ψ.freq)
     modes  = fourier_modes(Ψ)

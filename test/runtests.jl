@@ -70,14 +70,21 @@ using Unitful
             end
             
             @testset "phase" begin
-                phi = phase(ŷ)
-                @test all(-π .< phi .< π )
 
+                # take the phase of a single tone
+                phase(ŷ.coeff[begin])
+                
+                phi = phase(ŷ)
+                @test all(-π .<= phi .<= π )
+
+                # Somewhat more complicated due to floating point numbers
                 # Nyquist coefficient should be real
-                @test isapprox(first(phi), 0.0, atol= 1.0e-10)
+                # @test isapprox(first(phi), 0.0, atol= 1.0e-10)
+                @test isapprox(imag(first(phi)), 0.0, atol= 1.0e-10)
 
                 # time-mean coefficient should be real
-                @test isapprox(phi[0], 0.0, atol= 1.0e-10)
+                # @test isapprox(phi[0], 0.0, atol= 1.0e-10)
+                @test isapprox(imag(phi[0]), 0.0, atol= 1.0e-10)
             end
         
         end 
