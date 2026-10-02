@@ -108,7 +108,6 @@ function RegularTimeseries(x::AbstractVector, t::AbstractVector{R}) where R <: N
     end
 end
 
-
 """
     FrequencySpectrum{T}
 
@@ -622,6 +621,7 @@ end
 Retrieve amplitudes for individual positive + negative frequency waves.        
 """
 function amplitudes(Ψ::FrequencySpectrum; even = true)
+    # println("INSIDE amps")
     nf = length(Ψ.psd)
     T = 1/first(Ψ.freq)
     modes  = fourier_modes(Ψ)
