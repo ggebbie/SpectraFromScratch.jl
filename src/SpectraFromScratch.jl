@@ -576,7 +576,7 @@ function integrate(tstart, tend, x::FourierTransform, m::Number)
     return   A * (limit2 - limit1)
 end
 
-function phase(x::Complex)
+function phase(x::Number)
     rr = real(x)
     ii = imag(x)
     if iszero(rr)
@@ -601,7 +601,7 @@ function phase(x::FourierTransform)
     ind = first(axes(x.coeff))
     phi = OffsetArray(zeros(length(ind)), ind)
     for n in eachindex(x.coeff)
-        phi[n] = phase(x[n])
+        phi[n] = phase(x.coeff[n])
     end
     return phi
 end

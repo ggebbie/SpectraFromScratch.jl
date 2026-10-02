@@ -70,6 +70,10 @@ using Unitful
             end
             
             @testset "phase" begin
+
+                # take the phase of a single tone
+                phase(ŷ.coeff[begin])
+                
                 phi = phase(ŷ)
                 @test all(-π .< phi .< π )
 
