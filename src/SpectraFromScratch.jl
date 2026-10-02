@@ -576,11 +576,32 @@ function integrate(tstart, tend, x::FourierTransform, m::Number)
     return   A * (limit2 - limit1)
 end
 
+function phase(x::Complex)
+    rr = real(x)
+    ii = imag(x)
+    if iszero(rr)
+        if ii > zero(ii)
+            return π/2
+        elseif ii < zero(ii) 
+            return -π/2
+        else
+            return NaN
+        end
+    end
+    phi = atan(ii/rr)
+    if rr > zero(rr)
+        return phi
+    elseif ii >= zero(ii)
+        return phi + π
+    else
+        return phi - π
+    end
+end
 function phase(x::FourierTransform)
     ind = first(axes(x.coeff))
     phi = OffsetArray(zeros(length(ind)), ind)
     for n in eachindex(x.coeff)
-        phi[n] = atan(imag(x.coeff[n])/real(x.coeff[n]))        
+        phi[n] = phase(x[n])
     end
     return phi
 end
